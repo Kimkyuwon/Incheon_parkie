@@ -1,0 +1,34 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/rp-nuc/localization_1207_ws/install/ros_imu_topic/include/**",
+        "/home/rp-nuc/localization_1207_ws/install/serial/include/**",
+        "/home/rp-nuc/localization_1207_ws/install/sensor_handler/include/**",
+        "/home/rp-nuc/localization_1207_ws/install/rviz_2d_overlay_plugins/include/**",
+        "/home/rp-nuc/localization_1207_ws/install/rviz_2d_overlay_msgs/include/**",
+        "/home/rp-nuc/localization_1207_ws/install/robot_localization/include/**",
+        "/home/rp-nuc/localization_1207_ws/install/ndt_omp/include/**",
+        "/home/rp-nuc/localization_1207_ws/install/imu_robor_msg/include/**",
+        "/opt/ros/foxy/include/**",
+        "/home/rp-nuc/localization_1207_ws/src/IMU_ROBOR-ros2/src/imu_robor/include/**",
+        "/home/rp-nuc/localization_1207_ws/src/IMU_ROBOR-ros2/src/serial-ros2/include/**",
+        "/home/rp-nuc/localization_1207_ws/src/ndt_omp-master/include/**",
+        "/home/rp-nuc/localization_1207_ws/src/robot_localization/include/**",
+        "/home/rp-nuc/localization_1207_ws/src/rviz_2d_overlay_plugins-main/rviz_2d_overlay_plugins/include/**",
+        "/home/rp-nuc/localization_1207_ws/src/sensor_handler/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

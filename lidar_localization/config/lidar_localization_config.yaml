@@ -1,0 +1,32 @@
+/**:
+  ros__parameters:
+
+    init_x: 207601.5
+    init_y: 533979.8
+    init_z: 0.0
+    init_roll: 0.0
+    init_pitch: 0.0
+    init_yaw: 180.0
+
+    matching_mode: "NDT_OMP"
+
+    map_matching_range: 100.0
+    resolution: 1.0
+    voxel_size: 0.1
+    map_voxel_size: 0.1
+    iter_num: 5
+    thread_num: 6
+    step_size: 0.1
+    epsilon: 0.01
+
+    debug_flag: True
+
+ndtLocalization:
+  ros__parameters:
+
+    l2b_roll: 0.0
+    l2b_pitch: 0.0
+    l2b_yaw: 0.0
+    l2b_x: 0.0
+    l2b_y: 0.0
+    l2b_z: 0.0
