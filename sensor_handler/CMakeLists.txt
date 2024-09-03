@@ -25,8 +25,8 @@ find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(Boost COMPONENTS timer)
-find_package(ublox_msgs REQUIRED)
-find_package(ublox_serialization REQUIRED)
+find_package(novatel_oem7_msgs REQUIRED)
+# find_package(ublox_serialization REQUIRED)
 
 include_directories(
   include
@@ -45,7 +45,7 @@ ament_target_dependencies(sensorChecker
   geometry_msgs
   sensor_msgs
   nav_msgs
-  ublox_msgs
+  novatel_oem7_msgs
   PCL
   EIGEN3
 )
@@ -99,7 +99,7 @@ ament_target_dependencies(gnssHandler
   PCL
   EIGEN3
   pcl_conversions
-  ublox_msgs
+  novatel_oem7_msgs
 )
 
 add_executable(lidarHandler src/lidarHandler.cpp)
@@ -121,7 +121,7 @@ ament_target_dependencies(lidarHandler
 )
 
 install(
-  TARGETS  DR_Handler gnssHandler lidarHandler sensorChecker sensorErrorHandler
+  TARGETS  DR_Handler gnssHandler lidarHandler sensorErrorHandler sensorChecker
   DESTINATION lib/${PROJECT_NAME}
 )
 

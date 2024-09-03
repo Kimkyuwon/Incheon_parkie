@@ -14,8 +14,8 @@ gnssHandler::~gnssHandler()
 
 int gnssHandler::Initialize()
 {
-    subGNSS = create_subscription<ublox_msgs::msg::NavPVT>(
-        "ublox_gps_node/navpvt", qos_, std::bind(&gnssHandler::callbackGnss, this, std::placeholders::_1));
+    subGNSS = create_subscription<novatel_oem7_msgs::msg::INSPVA>(
+        "/novatel/oem7/inspva", qos_, std::bind(&gnssHandler::callbackGnss, this, std::placeholders::_1)); // ublox_gps_node/navpvt
     subNMEA = create_subscription<sensor_msgs::msg::NavSatFix>(
         "fix/mrp", qos_, std::bind(&gnssHandler::callbackNMEA, this, std::placeholders::_1));
     subResponse = create_subscription<std_msgs::msg::Bool>(
@@ -28,7 +28,8 @@ int gnssHandler::Initialize()
     return 0;
 }
 
-void gnssHandler::callbackGnss(const ublox_msgs::msg::NavPVT::SharedPtr gnssMsg)
+// /*
+void gnssHandler::callbackGnss(const novatel_oem7_msgs::msg::INSPVA::SharedPtr gnssMsg)
 {   
     std_msgs::msg::Float32 dummyMsg;
     pubDummyGnss->publish(dummyMsg);
@@ -38,7 +39,7 @@ void gnssHandler::callbackGnss(const ublox_msgs::msg::NavPVT::SharedPtr gnssMsg)
     // LatLon2TM(latitude, longitude, x, y);
 
     Eigen::Vector3d llh;
-    llh(0) = (gnssMsg->lat) * 1e-7; llh(1) = (gnssMsg->lon) * 1e-7; llh(2) = gnssMsg->height;
+    llh(0) = (gnssMsg->latitude) * 1e-7; llh(1) = (gnssMsg->longitude) * 1e-7; llh(2) = gnssMsg->height;
     Eigen::Vector2d TM = LatLon2TM(llh);
 
     nav_msgs::msg::Odometry gnssPose;
@@ -49,12 +50,12 @@ void gnssHandler::callbackGnss(const ublox_msgs::msg::NavPVT::SharedPtr gnssMsg)
     gnssPose.pose.pose.position.x = TM(0);
     gnssPose.pose.pose.position.y = TM(1);
     gnssPose.pose.pose.position.z = llh(2);
-    gnssPose.pose.covariance[0] = gnssMsg->flags;       // CARRIER_PHASE_FLOAT = 64, CARRIER_PHASE_FIXED = 128
-    gnssPose.pose.covariance[1] = gnssMsg->num_sv;
-    gnssPose.pose.covariance[2] = gnssMsg->p_dop * 1e-2;
-    gnssPose.pose.covariance[3] = gnssMsg->h_acc * 1e-3;
-    gnssPose.pose.covariance[4] = gnssMsg->v_acc * 1e-3;
-    gnssPose.pose.covariance[5] = gnssMsg->head_acc * 1e-5;
+    gnssPose.pose.covariance[0] = 0; //gnssMsg->ins_status; //flags;       // CARRIER_PHASE_FLOAT = 64, CARRIER_PHASE_FIXED = 128
+    gnssPose.pose.covariance[1] = 0; // //gnssMsg->num_sv;
+    gnssPose.pose.covariance[2] = 0; //gnssMsg->p_dop * 1e-2;
+    gnssPose.pose.covariance[3] = 0; //gnssMsg->h_acc * 1e-3;
+    gnssPose.pose.covariance[4] = 0; //gnssMsg->v_acc * 1e-3;
+    gnssPose.pose.covariance[5] = 0; //gnssMsg->head_acc * 1e-5;
 
     NMEA_Enable = 0;
     pubGnssPose->publish(gnssPose);
@@ -71,7 +72,7 @@ void gnssHandler::callbackGnss(const ublox_msgs::msg::NavPVT::SharedPtr gnssMsg)
         }
     }
 }
-
+// */
 void gnssHandler::responseCallback(const std_msgs::msg::Bool::SharedPtr rspsMsg) {
 
     if (rspsMsg->data) {

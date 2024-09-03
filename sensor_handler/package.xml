@@ -27,7 +27,7 @@
   <depend>tf2_ros</depend>
   <depend>pcl_conversions</depend>
   <depend>PCL</depend>
-  <depend>ublox_msgs</depend>
+
 
   <!-- <exec_depend>message_runtime</exec_depend> -->
   <export>

@@ -19,7 +19,7 @@ int DR_Handler::Initialize()
     subIMU = create_subscription<sensor_msgs::msg::Imu>(
         "imu", qos_, std::bind(&DR_Handler::imuHandler, this, std::placeholders::_1));
     subOdom = create_subscription<nav_msgs::msg::Odometry>(
-        "odom", qos_, std::bind(&DR_Handler::odomHandler, this, std::placeholders::_1));
+        "/novatel/oem7/odom", qos_, std::bind(&DR_Handler::odomHandler, this, std::placeholders::_1)); // odom
 
     pubDR = create_publisher<nav_msgs::msg::Odometry>("dr/velo", qos_);
     pubDummyImu = create_publisher<std_msgs::msg::Float32>("dummyImu", qos_);
@@ -93,11 +93,11 @@ void DR_Handler::odomHandler(const nav_msgs::msg::Odometry::SharedPtr odomMsg){
     /* linear velocity from Odom, angular velocity from IMU, linear acceleration from IMU(just store at covariance) */
     nav_msgs::msg::Odometry drVelo;
     drVelo.header.stamp = odomMsg->header.stamp;
-    drVelo.twist.twist.linear.x = odomMsg->twist.twist.linear.x;
-    // drVelo.twist.twist.linear.y = odomMsg->twist.twist.linear.y;
-    drVelo.twist.twist.angular.x = rad2deg(gyro(0));
-    drVelo.twist.twist.angular.y = rad2deg(gyro(1));
-    drVelo.twist.twist.angular.z = rad2deg(gyro(2));
+    drVelo.twist.twist.linear.x = odomMsg->twist.twist.linear.y; //odomMsg->twist.twist.linear.x;
+    drVelo.twist.twist.linear.y = odomMsg->twist.twist.linear.x; //odomMsg->twist.twist.linear.y;
+    drVelo.twist.twist.angular.x = 0.0; //rad2deg(gyro(0));
+    drVelo.twist.twist.angular.y = 0.0; //rad2deg(gyro(1));
+    drVelo.twist.twist.angular.z = rad2deg(odomMsg->twist.twist.angular.z); //  //-rad2deg(gyro(2)); // odomMsg->twist.twist.angular.z
 
     pubDR->publish(drVelo);
 }

@@ -45,7 +45,7 @@ def generate_launch_description():
     
     sensor_checker = launch_ros.actions.LifecycleNode(
         name='sensorChecker',
-        package='goalie_sensor_handler',
+        package='sensor_handler2',
         executable='sensorChecker',
         parameters=[{}],
         output='screen',
@@ -53,7 +53,7 @@ def generate_launch_description():
 
     sensorErrorHandler = launch_ros.actions.LifecycleNode(
         name='sensorErrorHandler',
-        package='goalie_sensor_handler',
+        package='sensor_handler2',
         executable='sensorErrorHandler',
         parameters=[{}],
         output='screen',
@@ -61,14 +61,14 @@ def generate_launch_description():
 
     DR_Handler = launch_ros.actions.LifecycleNode(
         name='DR_Handler',
-        package='goalie_sensor_handler',
+        package='sensor_handler2',
         executable='DR_Handler',
         output='screen',
         namespace='')
 
     lidarHandler = launch_ros.actions.LifecycleNode(
         name='lidarHandler',
-        package='goalie_sensor_handler',
+        package='sensor_handler2',
         executable='lidarHandler',
         parameters=[sensor_handler_config],
         output='screen',
@@ -76,7 +76,7 @@ def generate_launch_description():
 
     gnssHandler = launch_ros.actions.LifecycleNode(
         name='gnssHandler',
-        package='goalie_sensor_handler',
+        package='sensor_handler2',
         executable='gnssHandler',
         parameters=[],
         output='screen',
@@ -112,8 +112,8 @@ def generate_launch_description():
     ld.add_action(gnssHandler)
     ld.add_action(ndtLocalization)
     ld.add_action(poseEstimation)
-    ld.add_action(sensor_checker)
     ld.add_action(sensorErrorHandler)
+    # ld.add_action(sensorChecker)
     ld.add_action(rviz2)
 
     return ld
