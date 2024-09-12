@@ -1,4 +1,5 @@
 ﻿#include "ndtLocalization.hpp"
+// wj test
 /*
 1. pcl include : pcl-1.10/pcl/~
 2. ros : rclcpp

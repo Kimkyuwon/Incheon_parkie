@@ -18,7 +18,7 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include "std_msgs/msg/empty.hpp"
 #include "std_msgs/msg/bool.hpp"
-#include <ublox_msgs/ublox_msgs.hpp>
+#include <novatel_oem7_msgs/msg/inspva.hpp>
 
 #include <sensor_msgs/msg/nav_sat_fix.hpp>  //Add LimJH
 
@@ -31,7 +31,7 @@ public:
     ~gnssHandler();
     int Initialize();
 
-    void callbackGnss(const ublox_msgs::msg::NavPVT::SharedPtr gnssMsg);
+    void callbackGnss(const novatel_oem7_msgs::msg::INSPVA::SharedPtr gnssMsg);
     // void LatLon2TM(double lat, double lon, double &x, double &y);
 
     void callbackNMEA(const sensor_msgs::msg::NavSatFix::SharedPtr nmeaMsg);    //Add LimJH
@@ -46,7 +46,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pubReadyFlag;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubGnssPose;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pubDummyGnss;
-    rclcpp::Subscription<ublox_msgs::msg::NavPVT>::ConstSharedPtr subGNSS;
+    rclcpp::Subscription<novatel_oem7_msgs::msg::INSPVA>::ConstSharedPtr subGNSS;
     rclcpp::Subscription<sensor_msgs::msg::NavSatFix>::ConstSharedPtr subNMEA;  //Add LimJH
     rclcpp::Subscription<std_msgs::msg::Bool>::ConstSharedPtr subResponse;
 
