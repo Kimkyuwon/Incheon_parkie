@@ -95,8 +95,8 @@ int ndtLocalization::Initialize(){
     g_TM_offset(0) = init_x;    g_TM_offset(1) = init_y;    g_TM_offset(2) = init_z;
     g_TM_offset(5) = init_yaw;
     Eigen::Matrix4d TM_TF(Eigen::Matrix4d::Identity());
-    TM_TF(0,3) = 207590-g_TM_offset(0);
-    TM_TF(1,3) = 533980-g_TM_offset(1);
+    TM_TF(0,3) = -g_TM_offset(0);
+    TM_TF(1,3) = -g_TM_offset(1);
     if (pcl::io::loadPCDFile(map_directory, *laserCloudMap) == -1)
     {
         RCLCPP_ERROR(this->get_logger(), "Map file cannot open.\n");
@@ -257,11 +257,6 @@ void ndtLocalization::pubMeasurement()
     tf2::Matrix3x3 m2(q_measOrigin);
     m2.getRPY(meas(3), meas(4), meas(5));
 
-
-    double matching_ratio = 0;
-
-    matching_ratio = static_cast<float>(matching_points_num) / 3000;    //max_points_num;  //laserCloudGlobal->points.size();  //4000;
-
     measPath.poses.clear();
     geometry_msgs::msg::PoseStamped odomOrigin;
     tf2::Quaternion q_origin;
@@ -315,7 +310,6 @@ void ndtLocalization::pubMeasurement()
 
     odomInfo.pose.position.x = wholeLocalizationProcessTime;
     odomInfo.pose.position.y = laserCloudGlobal->points.size();
-    odomInfo.pose.position.z = matching_ratio;
     measPath.header.stamp = rclcpp::Time(timeLaserCloud, timeLaserCloudNano);
     measPath.header.frame_id = "map";
     measPath.poses.push_back(odomInfo); 
@@ -592,7 +586,7 @@ void ndtLocalization::laserCloudHandler(const sensor_msgs::msg::PointCloud2::Sha
                 if (max_eigen < 0)
                 {
                     hessian_Converged = true;
-                    if (max_abs_eigen < 0.00006) 
+                    if (max_abs_eigen < 0.00012) 
                     {   
                         hessian_Status = true;
                         RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[32m" "Good Map Matching Result." "\x1b[0m");

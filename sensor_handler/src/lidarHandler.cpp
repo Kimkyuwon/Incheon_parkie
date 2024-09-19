@@ -180,8 +180,6 @@ void lidarHandler::laserCloudHandler(const sensor_msgs::msg::PointCloud2::Shared
     }
     std_msgs::msg::Float32 dummyMsg;
     pubDummyLidar->publish(dummyMsg);
-
-    TicToc t_lidar;
     pcl::PointCloud<pcl::PointXYZI> laserCloudIn;
     pcl::fromROSMsg(*laserCloudMsg, laserCloudIn);
 
