@@ -88,7 +88,6 @@ public:
 private:
     bool initSequence = false;
     
-    pcl::NormalDistributionsTransformExtension<PointType, PointType> ndt;
     pclompm::NormalDistributionsTransform<PointType, PointType> ndtomp;
     
     double timeLaserCloud = 0.0;

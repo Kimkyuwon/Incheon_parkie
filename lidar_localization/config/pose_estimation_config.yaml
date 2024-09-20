@@ -1,9 +1,9 @@
 /**:
   ros__parameters:
 
-    init_x: 149372.0
-    init_y: 542303.0
-    init_z: 0.0
+    init_x: 149407.0
+    init_y: 542335.0
+    init_z: 0.4
     init_roll: 0.0
     init_pitch: 0.0
     init_yaw: -144.0

@@ -1,11 +1,11 @@
 /**:
   ros__parameters:
 
-    minimum_range: 1.5
+    minimum_range: 3.0
 
     l2b_roll: 0.0
     l2b_pitch: 0.0
     l2b_yaw: 0.0 #90.0
-    l2b_x: 0.0
-    l2b_y: 0.0
-    l2b_z: 0.0
+    l2b_x: 4.0
+    l2b_y: -0.2
+    l2b_z: 0.45

@@ -92,8 +92,7 @@ int ndtLocalization::Initialize(){
     this->get_parameter("debug_flag", debug_flag);
 
     g_TM_offset.setZero();
-    g_TM_offset(0) = init_x;    g_TM_offset(1) = init_y;    g_TM_offset(2) = init_z;
-    g_TM_offset(5) = init_yaw;
+    g_TM_offset(0) = init_x;    g_TM_offset(1) = init_y;   
     Eigen::Matrix4d TM_TF(Eigen::Matrix4d::Identity());
     TM_TF(0,3) = -g_TM_offset(0);
     TM_TF(1,3) = -g_TM_offset(1);
@@ -103,14 +102,6 @@ int ndtLocalization::Initialize(){
         return 0;
     }
     pcl::transformPointCloud(*laserCloudMap, *laserCloudMap, TM_TF);
-
-    Eigen::Matrix3f R;
-    L2B_TF.setIdentity();
-    R = Eigen::AngleAxisf(deg2rad(l2b_roll), Eigen::Vector3f::UnitX())
-    * Eigen::AngleAxisf(deg2rad(l2b_pitch), Eigen::Vector3f::UnitY())
-    * Eigen::AngleAxisf(deg2rad(l2b_yaw), Eigen::Vector3f::UnitZ());
-    L2B_TF.block(0,0,3,3) = R;
-    L2B_TF(0,3) = l2b_x;  L2B_TF(1,3) = l2b_y;  L2B_TF(2,3) = l2b_z;
 
     pcl::VoxelGrid<PointType> downSizeFilter;
     downSizeFilter.setInputCloud(laserCloudMap);
@@ -128,44 +119,17 @@ int ndtLocalization::Initialize(){
 
     kdtree->setInputCloud(laserCloudVisMap);
 
-    // need to remove (Goalie)
-    pcl::ConditionAnd<PointType>::Ptr range_cond (new pcl::ConditionAnd<PointType>());
-    range_cond->addComparison (pcl::FieldComparison<PointType>::ConstPtr (new pcl::FieldComparison<PointType> ("z", pcl::ComparisonOps::LT, 2.5)));
-
-    // build the filter
-    pcl::ConditionalRemoval<PointType> condrem;
-    condrem.setCondition(range_cond);
-    condrem.setInputCloud(laserCloudMap);
-    condrem.setKeepOrganized (true);
-    // apply filter
-    condrem.filter (*laserCloudMap); 
-
-    if (matching_mode == "NDT")
-    {
-        ndt.setInputTarget(laserCloudMap);
-        ndt.setMaximumIterations(iter_num);
-        ndt.setTransformationEpsilon(epsilon);
-        ndt.setResolution(resolution);
-        ndt.setStepSize(step_size);
-    }
-    else if (matching_mode == "NDT_OMP")
-    {
-        ndtomp.setInputTarget(laserCloudMap);
-        ndtomp.setMaximumIterations(iter_num);
-        ndtomp.setTransformationEpsilon(epsilon);
-        ndtomp.setResolution(resolution);
-        ndtomp.setStepSize(step_size);
-        ndtomp.setNumThreads(thread_num);
-        ndtomp.setNeighborhoodSearchMethod(pclompm::DIRECT7);
-    }
-
-
+    ndtomp.setInputTarget(laserCloudMap);
+    ndtomp.setMaximumIterations(iter_num);
+    ndtomp.setTransformationEpsilon(epsilon);
+    ndtomp.setResolution(resolution);
+    ndtomp.setStepSize(step_size);
+    ndtomp.setNumThreads(thread_num);
+    ndtomp.setNeighborhoodSearchMethod(pclompm::DIRECT7);
+    
     initPos.setZero();
     initAtt.setZero();
-    Eigen::Vector2d l2b_init_vec;
-    l2b_init_vec(0) = l2b_x*cos(deg2rad(init_yaw)) - l2b_y*sin(deg2rad(init_yaw));
-    l2b_init_vec(1) = l2b_x*sin(deg2rad(init_yaw)) + l2b_y*cos(deg2rad(init_yaw));
-    initPos(0) = (init_x-g_TM_offset(0)) + l2b_init_vec(0);   initPos(1) = (init_y-g_TM_offset(1)) + l2b_init_vec(1);  initPos(2) = init_z-g_TM_offset(2);
+    initPos(0) = (init_x-g_TM_offset(0));   initPos(1) = (init_y-g_TM_offset(1));  initPos(2) = init_z;
     initAtt(0) = init_roll;   initAtt(1) = init_pitch;   initAtt(2) = init_yaw;
     
     state_TF(0,3) = initPos(0);
@@ -233,15 +197,6 @@ void ndtLocalization::pubMeasurement()
     TF.block(0,0,3,3) = R;
     TF(0,3) = state_meas(0); TF(1,3) = state_meas(1);  TF(2,3) = state_meas(2);
 
-    Eigen::Vector3f L2B_vec;
-    L2B_vec(0) = L2B_TF(0,3);
-    L2B_vec(1) = L2B_TF(1,3);
-    L2B_vec(2) = L2B_TF(2,3);
-    L2B_vec = R * L2B_vec;
-    TF(0,3) = TF(0,3) + L2B_vec(0);
-    TF(1,3) = TF(1,3) + L2B_vec(1);
-    TF(2,3) = TF(2,3) + L2B_vec(2);
-
     Eigen::VectorXd meas(6);
     meas(0) = TF(0,3);
     meas(1) = TF(1,3);
@@ -276,15 +231,6 @@ void ndtLocalization::pubMeasurement()
 
     Eigen::Matrix3f meas_R;
     meas_R = meas_TF.block(0,0,3,3);
-    Eigen::Vector3f L2B_vec2;
-    L2B_vec2(0) = L2B_TF(0,3);
-    L2B_vec2(1) = L2B_TF(1,3);
-    L2B_vec2(2) = L2B_TF(2,3);
-    L2B_vec2 = meas_R * L2B_vec2;
-    Eigen::Vector3d meas_TF_cog;
-    meas_TF_cog(0) = meas_TF(0,3) + L2B_vec2(0);
-    meas_TF_cog(1) = meas_TF(1,3) + L2B_vec2(1);
-    meas_TF_cog(2) = meas_TF(2,3) + L2B_vec2(2);
 
     geometry_msgs::msg::PoseStamped odomMeas;
     Eigen::Quaternionf q_meas(meas_R);
@@ -294,9 +240,9 @@ void ndtLocalization::pubMeasurement()
     odomMeas.pose.orientation.y = q_meas.y();
     odomMeas.pose.orientation.z = q_meas.z();
     odomMeas.pose.orientation.w = q_meas.w();
-    odomMeas.pose.position.x = meas_TF_cog(0);
-    odomMeas.pose.position.y = meas_TF_cog(1);
-    odomMeas.pose.position.z = meas_TF_cog(2);
+    odomMeas.pose.position.x = meas_TF(0,3);
+    odomMeas.pose.position.y = meas_TF(1,3);
+    odomMeas.pose.position.z = meas_TF(2,3);
     measPath.header.stamp = rclcpp::Time(timeLaserCloud,timeLaserCloudNano);
     measPath.header.frame_id = "map";
     measPath.poses.push_back(odomMeas);
@@ -395,14 +341,6 @@ void ndtLocalization::currStateHandler(const nav_msgs::msg::Odometry::SharedPtr 
     q_state.z() = state->pose.pose.orientation.z;
     Eigen::Matrix3f state_R = q_state.toRotationMatrix();
     state_TF.block(0,0,3,3) = state_R;
-    Eigen::Vector3f L2B_vec;
-    L2B_vec(0) = -L2B_TF(0,3);
-    L2B_vec(1) = -L2B_TF(1,3);
-    L2B_vec(2) = -L2B_TF(2,3);
-    L2B_vec = state_R * L2B_vec;
-    state_TF(0,3) = state_TF(0,3) + L2B_vec(0);
-    state_TF(1,3) = state_TF(1,3) + L2B_vec(1);
-    state_TF(2,3) = state_TF(2,3) + L2B_vec(2);
 }
 
 void ndtLocalization::laserCloudHandler(const sensor_msgs::msg::PointCloud2::SharedPtr laserCloudMsg)
@@ -426,7 +364,6 @@ void ndtLocalization::laserCloudHandler(const sensor_msgs::msg::PointCloud2::Sha
     pcl::transformPointCloud(*laserCloud, *laserCloudVisual, meas_TF);
     if (debug_flag == true)
     {
-
         sensor_msgs::msg::PointCloud2 laserCloudFeature2;
         pcl::toROSMsg(*laserCloudVisual, laserCloudFeature2);
         laserCloudFeature2.header.stamp = rclcpp::Time(timeLaserCloud,timeLaserCloudNano);
@@ -459,29 +396,13 @@ void ndtLocalization::laserCloudHandler(const sensor_msgs::msg::PointCloud2::Sha
     else
     {
         TicToc t_localization;
-        Eigen::Matrix4f TF (Eigen::Matrix4f::Identity());
-        Eigen::Matrix3f R;
-        R =  Eigen::AngleAxisf(state_meas(5), Eigen::Vector3f::UnitZ())
-            * Eigen::AngleAxisf(state_meas(4), Eigen::Vector3f::UnitY())
-            * Eigen::AngleAxisf(state_meas(3), Eigen::Vector3f::UnitX());
-
-        TF.block(0,0,3,3) = R;
-        TF(0,3) = state_meas(0); TF(1,3) = state_meas(1);  TF(2,3) = state_meas(2);
-
 
         pcl::PointCloud<PointType>::Ptr aligned_cloud(new pcl::PointCloud<PointType>());
-        if (matching_mode == "NDT")
-        {
-            ndt.setInputSource(laserCloud);
-            ndt.align(*aligned_cloud, TF);
-            meas_TF = ndt.getFinalTransformation();
-        }
-        else if (matching_mode == "NDT_OMP")
-        {
-            ndtomp.setInputSource(laserCloud);
-            ndtomp.align(*aligned_cloud, TF);
-            meas_TF = ndtomp.getFinalTransformation();
-        }
+
+        ndtomp.setInputSource(laserCloud);
+        ndtomp.align(*aligned_cloud, state_TF);
+        meas_TF = ndtomp.getFinalTransformation();
+        
         Eigen::Matrix<double, 6, 6> hessian = ndtomp.getHessian();
 
         typedef Eigen::EigenSolver<Eigen::Matrix<double, 6, 6>> EigenSolver;
@@ -515,29 +436,28 @@ void ndtLocalization::laserCloudHandler(const sensor_msgs::msg::PointCloud2::Sha
             pcl::transformPointCloud(*laserCloud, *laserCloud, meas_TF);
             matching_points_num = 0;
             int neighborThreshold = 1; // FIXME, we can make it as parameter, 1~7 based on DIRECT7
-            if(matching_mode == "NDT_OMP") 
-            {
-                for(int k = 0; k < laserCloud->points.size(); k++) 
-                {
-                    std::vector<pclompm::VoxelGridCovariance<PointType>::LeafConstPtr> neighborhood;
-                    int validGrid = ndtomp.getTargetGridPtr()->getNeighborhoodAtPoint7(laserCloud->points[k], neighborhood);
-                    if(validGrid >= neighborThreshold) 
-                    {
-                        matching_points_num++;
-                    }
 
-                    kdtree->nearestKSearch(laserCloud->points[k], 1, pointSearchInd, pointSearchSqDis);
-                    if (pointSearchSqDis[0] < 0.1)
-                    {
-                        laserCloudGlobal->points.push_back(laserCloud->points[k]);
-                    }
+            for(int k = 0; k < laserCloud->points.size(); k++) 
+            {
+                std::vector<pclompm::VoxelGridCovariance<PointType>::LeafConstPtr> neighborhood;
+                int validGrid = ndtomp.getTargetGridPtr()->getNeighborhoodAtPoint7(laserCloud->points[k], neighborhood);
+                if(validGrid >= neighborThreshold) 
+                {
+                    matching_points_num++;
+                }
+
+                kdtree->nearestKSearch(laserCloud->points[k], 1, pointSearchInd, pointSearchSqDis);
+                if (pointSearchSqDis[0] < 0.1)
+                {
+                    laserCloudGlobal->points.push_back(laserCloud->points[k]);
                 }
             }
+            
 
             pcl::VoxelGrid<PointType> downSizeFilter;
             downSizeFilter.setInputCloud(laserCloudGlobal);
             downSizeFilter.setLeafSize(2.0, 2.0, 2.0);
-            downSizeFilter.setMinimumPointsNumberPerVoxel(5);
+            downSizeFilter.setMinimumPointsNumberPerVoxel(2);
             downSizeFilter.filter(*laserCloudGlobal);
             pcl::removeNaNFromPointCloud(*laserCloudGlobal, *laserCloudGlobal, indiceLet);
             indiceLet.clear();
@@ -589,23 +509,22 @@ void ndtLocalization::laserCloudHandler(const sensor_msgs::msg::PointCloud2::Sha
                     if (max_abs_eigen < 0.00012) 
                     {   
                         hessian_Status = true;
-                        RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[32m" "Good Map Matching Result." "\x1b[0m");
+                        // RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[32m" "Good Map Matching Result." "\x1b[0m");
                     }
                     else
                     {
                         hessian_Status = false;
-                        RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[33m" "Map Matching Converged." "\x1b[0m");
+                        // RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[33m" "Map Matching Converged." "\x1b[0m");
                     }
                 }                
                 else 
                 {
                     hessian_Status = false;
                     hessian_Converged = false;
-                    RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[31m" "Bad Map Matching Result." "\x1b[0m");
+                    // RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[31m" "Bad Map Matching Result." "\x1b[0m");
                 }
             }
             wholeLocalizationProcessTime = t_localization.toc();
-            matching_failed = false;
         }
     }
 }

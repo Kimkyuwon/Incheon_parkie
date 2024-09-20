@@ -118,9 +118,16 @@ void poseEstimation::poseEstimate()
 
         RCLCPP_INFO_ONCE(this->get_logger(), "\x1b[32m" "poseEstimation Ready." "\x1b[0m");
         
-        if (response_subscribed) {
+        if (response_subscribed) 
+        {
 
             flag_published = true;
+
+            if (gnss_enable)
+            {
+                g_state_X(0) = g_X_gnss(0);
+                g_state_X(1) = g_X_gnss(1);
+            }
         }
     }
 
@@ -141,8 +148,8 @@ void poseEstimation::poseEstimate()
     g_state_X(4) += diff_update(4);
     g_state_X(5) += diff_update(5);
 
-    g_mat_Q.diagonal() << pow(g_Q_var(0), 2)*0.1, pow(g_Q_var(1), 2)*0.1, pow(g_Q_var(2), 2)*0.1, 
-                    pow(deg2rad(g_Q_var(3))*0.1, 2), pow(deg2rad(g_Q_var(4))*0.1, 2), pow(deg2rad(g_Q_var(5))*0.1, 2);
+    g_mat_Q.diagonal() << pow(g_Q_var(0), 2), pow(g_Q_var(1), 2), pow(g_Q_var(2), 2), 
+                    pow(deg2rad(g_Q_var(3)), 2), pow(deg2rad(g_Q_var(4)), 2), pow(deg2rad(g_Q_var(5)), 2);
     g_mat_P += g_mat_Q;
 
     /* Broadcast Final Robot Pose */
@@ -211,13 +218,21 @@ void poseEstimation::poseEstimate()
     
 }
 
-void poseEstimation::initPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr init){
+void poseEstimation::initPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr init)
+{
     
     // using station's marker || position from gps || .yaml parameter file
 }
 
-void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas){
-    
+void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas)
+{
+    double lidar_curr_time = meas->header.stamp.sec + meas->header.stamp.nanosec * 1e-9;
+    double diff_lidar_time = lidar_curr_time - lidar_prev_time;
+    lidar_prev_time = lidar_curr_time;
+
+    if (diff_lidar_time < 0.09 || diff_lidar_time > 0.11)    return;
+
+    mtx.lock();
     meas_info = meas->poses[2];
     hessian_cov = meas->poses[5];
     bool hessian_converged = meas_info.pose.orientation.w;
@@ -239,8 +254,13 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
         {
             init_cnt++;
         }
+        else
+        {
+            mtx.unlock();
+            return;
+        }
 
-        if (init_cnt > 10)  // Hessian status가 10번 이상 true 시 초기화 완료 판단
+        if (init_cnt > 5)  // Hessian status가 10번 이상 true 시 초기화 완료 판단
         {
             RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[32m" "Position is Initialized." "\x1b[0m");
             init_cnt = 0;
@@ -258,7 +278,7 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
     g_R_lidar(3) = scale * hessian_cov.pose.orientation.z;      // LiDAR variance(std) roll
     g_R_lidar(4) = scale * hessian_cov.pose.position.x;         // LiDAR variance(std) pitch
     g_R_lidar(5) = scale * hessian_cov.pose.position.y;         // LiDAR variance(std) yaw
-
+ 
     /* State at the Start of Map Matching */
     g_X_lidar_ori(0) = meas->poses[0].pose.position.x;
     g_X_lidar_ori(1) = meas->poses[0].pose.position.y;
@@ -291,7 +311,7 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
     z(3) = pi2piRad(g_X_lidar(3)); z(4) = pi2piRad(g_X_lidar(4)); z(5) = pi2piRad(g_X_lidar(5));
 
     g_mat_H.diagonal() << 1, 1, 1, 1, 1, 1;
-    g_res_Z = z - g_mat_H * g_X_lidar_ori;
+    g_res_Z = z - g_mat_H * g_state_X;
     g_res_Z(3) = pi2piRad(g_res_Z(3)); g_res_Z(4) = pi2piRad(g_res_Z(4)); g_res_Z(5) = pi2piRad(g_res_Z(5));
 
     g_mat_K = g_mat_P * g_mat_H.transpose() * (g_mat_H * g_mat_P * g_mat_H.transpose() + g_mat_R).inverse();
@@ -300,15 +320,21 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
     g_state_X(3) = pi2piRad(g_state_X(3)); g_state_X(4) = pi2piRad(g_state_X(4)); g_state_X(5) = pi2piRad(g_state_X(5));
 
     g_mat_P = (g_mat_I - g_mat_K * g_mat_H) * g_mat_P;
+    RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[32m" "LIDAR Measurement Update." "\x1b[0m");
+    mtx.unlock();
 }
 
 void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr gnssPose)
 {
     if (gnss_handler_on)
     {
+        mtx.lock();
         int pos_type = gnssPose->pose.covariance[2];
-        g_X_gnss(0) =  gnssPose->pose.pose.position.x - g_TM_offset(0);
-        g_X_gnss(1) =  gnssPose->pose.pose.position.y - g_TM_offset(1);
+        velocity(0) = gnssPose->twist.twist.linear.x;
+        velocity(1) = gnssPose->twist.twist.linear.y;
+        velocity(2) = gnssPose->twist.twist.linear.z;
+        g_X_gnss(0) = gnssPose->pose.pose.position.x - g_TM_offset(0);
+        g_X_gnss(1) = gnssPose->pose.pose.position.y - g_TM_offset(1);
         g_X_gnss(2) =  0;   // GNSS z 변수는 사용 안함
         g_X_gnss(3) = gnssPose->pose.pose.orientation.w;
         g_X_gnss(4) = gnssPose->pose.pose.orientation.x;
@@ -324,8 +350,6 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
         g_Q_var(0) = gnssPose->pose.covariance[7];
         g_Q_var(1) = gnssPose->pose.covariance[8];
         g_Q_var(2) = gnssPose->pose.covariance[9];
-        cout<<g_Q_var(0)<<", "<<g_Q_var(1)<<", "<<g_Q_var(2)<<endl;
-        // g_R_GNSS(5) = gnssPose->pose.covariance[14]; // GNSS variance(std) azimuth
 
         //INS 결합이 안된 상태라면 GNSS 측정치 업데이트 수행 X
         if (gnssPose->pose.covariance[0] == 3)  
@@ -336,13 +360,23 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
         {
             gnss_enable = 0;
         }
-        // 정지시 측정치 업데이트 수행 안함 ZUPT
-        // if (sqrt(pow(velocity(0),2)+pow(velocity(1),2)) < 0.01 && std::fabs(rpy_inc(2)) < 0.5)
+
+        if (!gnss_enable)   
+        {
+            mtx.unlock();
+            return;
+        }
+
+        // if (g_R_GNSS(0) > 0.5 || g_R_GNSS(1) > 0.5) 
         // {
         //     return;
-        // } 
-
-        if (!gnss_enable)   return;
+        // }        
+        // 정지시 측정치 업데이트 수행 안함 
+        if (sqrt(pow(velocity(0),2)+pow(velocity(1),2)) < 0.02 && std::fabs(rpy_inc(2)) < 0.5)
+        {
+            mtx.unlock();
+            return;
+        } 
 
         g_mat_R.diagonal() << pow(g_R_GNSS(0), 2), pow(g_R_GNSS(1), 2), pow(g_R_GNSS(2), 2), 
                             pow((g_R_GNSS(3)), 2), pow((g_R_GNSS(4)), 2), pow((g_R_GNSS(5)), 2);
@@ -362,6 +396,8 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
         g_state_X(3) = pi2piRad(g_state_X(3)); g_state_X(4) = pi2piRad(g_state_X(4)); g_state_X(5) = pi2piRad(g_state_X(5));
 
         g_mat_P = (g_mat_I - g_mat_K * g_mat_H) * g_mat_P;
+        RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[32m" "GNSS Measurement Update." "\x1b[0m");
+        mtx.unlock();
     }
 }
 
@@ -382,10 +418,6 @@ void poseEstimation::drVeloCallback(const nav_msgs::msg::Odometry::SharedPtr drV
     rpy_inc(0) = drVelo->twist.twist.angular.x;
     rpy_inc(1) = drVelo->twist.twist.angular.y;
     rpy_inc(2) = drVelo->twist.twist.angular.z;
-
-    velocity(0) = drVelo->twist.twist.linear.x;
-    velocity(1) = drVelo->twist.twist.linear.y;
-    velocity(2) = drVelo->twist.twist.linear.z;
 }
 
 int main(int argc, char **argv){

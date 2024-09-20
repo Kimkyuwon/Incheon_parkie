@@ -53,6 +53,9 @@ void gnssHandler::callbackGnss(const novatel_oem7_msgs::msg::INSPVA::SharedPtr g
     gnssPose.pose.pose.position.x = TM(0);
     gnssPose.pose.pose.position.y = TM(1);
     gnssPose.pose.pose.position.z = llh(2);
+    gnssPose.twist.twist.linear.x = gnssMsg->east_velocity;
+    gnssPose.twist.twist.linear.y = gnssMsg->north_velocity;
+    gnssPose.twist.twist.linear.z = gnssMsg->up_velocity;
     gnssPose.pose.pose.orientation.w = deg2rad(gnssMsg->roll);  //Roll
     gnssPose.pose.pose.orientation.x = deg2rad(gnssMsg->pitch); //Pitch
     gnssPose.pose.pose.orientation.y = pi2piRad(deg2rad(gnssMsg->azimuth)); //azimuth

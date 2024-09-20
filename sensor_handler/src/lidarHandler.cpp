@@ -34,6 +34,7 @@ int lidarHandler::Initialize()
     * Eigen::AngleAxisf(deg2rad(l2b_pitch), Eigen::Vector3f::UnitY())
     * Eigen::AngleAxisf(deg2rad(l2b_yaw), Eigen::Vector3f::UnitZ());
     L2B_TF.block(0,0,3,3) = R;
+    L2B_TF(0,3) = l2b_x;  L2B_TF(1,3) = l2b_y;  L2B_TF(2,3) = l2b_z;
 
     bodyVelo.setZero();
 
@@ -191,7 +192,6 @@ void lidarHandler::laserCloudHandler(const sensor_msgs::msg::PointCloud2::Shared
 
     std::vector<int> indices;
     removeClosedPointCloud(laserCloudIn, laserCloudIn, MINIMUM_RANGE);
-    pcl::transformPointCloud(laserCloudIn, laserCloudIn, L2B_TF);
 
     cloudSize = laserCloudIn.points.size();
     float startOri = -atan2(laserCloudIn.points[0].y, laserCloudIn.points[0].x);
@@ -211,7 +211,6 @@ void lidarHandler::laserCloudHandler(const sensor_msgs::msg::PointCloud2::Shared
     bool halfPassed = false;
     for (int i = 0; i < cloudSize; i++)
     {
-        if (laserCloudIn.points[i].z < -0.25)  continue;
         point.x = laserCloudIn.points[i].x;
         point.y = laserCloudIn.points[i].y;
         point.z = laserCloudIn.points[i].z;
@@ -267,17 +266,14 @@ void lidarHandler::laserCloudHandler(const sensor_msgs::msg::PointCloud2::Shared
         tempPoint.z = R(2,0) * point.x + R(2,1) * point.y + R(2,2) * point.z + linearInc(2);
         point.x = tempPoint.x;  point.y = tempPoint.y;  point.z = tempPoint.z;
 
-        laserCloud->points.push_back(point);
-        float angle = rad2deg(atan(point.z / sqrt(point.x * point.x + point.y * point.y)));
-        point._PointXYZINormal::normal_x = 0;
-        if (angle <= 0 && point.x > 0 && point.x < (4.0) && std::fabs(point.y) < 1.5 && point.z < -0.03)
+        if (point.z < -0.3)
         {
-            laserPlaneCloud->points.push_back(point);
+            point._PointXYZINormal::normal_x = 1;
         }
+        laserCloud->points.push_back(point);
     }
 
-    // Extract_ground_Points(laserCloud, laserPlaneCloud); //지면 추출 포인트 함수 (입력 : 전체 라이다 점 군, 수직 각도 및 높이로 필터링한 점 군)
-
+    pcl::transformPointCloud(*laserCloud, *laserCloud, L2B_TF);
     sensor_msgs::msg::PointCloud2 lidarPointsMsg;
     pcl::toROSMsg(*laserCloud, lidarPointsMsg);
     lidarPointsMsg.header.stamp = laserCloudMsg->header.stamp;

@@ -9,6 +9,7 @@
 #include <string>
 #include <optional>
 #include <filesystem>
+#include <mutex>
 
 #include "nav_msgs/msg/odometry.hpp"
 #include "nav_msgs/msg/path.hpp"
@@ -94,6 +95,7 @@ private:
     bool response_subscribed = false;
 
     double g_dt, prev_time;
+    double lidar_prev_time;
     double init_x, init_y, init_z, init_roll, init_pitch, init_yaw;
     double std_gnss_x, std_gnss_y, std_gnss_z;
     double std_gnss_roll, std_gnss_pitch, std_gnss_yaw;
@@ -108,6 +110,8 @@ private:
 
     geometry_msgs::msg::PoseStamped meas_info;
     geometry_msgs::msg::PoseStamped hessian_cov;
+
+    std::mutex mtx;
 
     rclcpp::TimerBase::SharedPtr timer;
 };
