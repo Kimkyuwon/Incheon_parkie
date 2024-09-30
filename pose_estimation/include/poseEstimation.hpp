@@ -99,8 +99,11 @@ private:
     double init_x, init_y, init_z, init_roll, init_pitch, init_yaw;
     double std_gnss_x, std_gnss_y, std_gnss_z;
     double std_gnss_roll, std_gnss_pitch, std_gnss_yaw;
+    int pos_type;
+    int num_sat;
     bool init_gnss = 0;
     int init_cnt = 0;
+    int timer_cnt = 0;
     int matching_failed_count = 0;
     int measure_update_type = 0;
     

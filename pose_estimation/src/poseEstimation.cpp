@@ -10,7 +10,7 @@ poseEstimation::poseEstimation()
     , qos_(rclcpp::QoSInitialization::from_rmw(rmw_qos_profile_services_default))
 
     /* variables of Kalman Filter */
-    , g_state_X(6), g_res_Z(6), g_X_gnss(6), g_X_lidar(6), g_X_lidar_ori(6), g_Q_var(6), g_R_lidar(6), g_R_GNSS(6), g_TM_offset(6)
+    , g_state_X(6), g_state_X_pre(6), g_res_Z(6), g_X_gnss(6), g_X_gnss_pre(6), g_X_lidar(6), g_X_lidar_ori(6), g_Q_var(6), g_R_lidar(6), g_R_GNSS(6), g_TM_offset(6)
     , g_mat_Q(6,6), g_mat_H(6,6), g_mat_P(6,6), g_mat_R(6,6), g_mat_K(6,6), g_mat_I(6,6) 
 {
     initialize();
@@ -119,14 +119,18 @@ void poseEstimation::poseEstimate()
         RCLCPP_INFO_ONCE(this->get_logger(), "\x1b[32m" "poseEstimation Ready." "\x1b[0m");
         
         if (response_subscribed) 
-        {
-
-            flag_published = true;
-
-            if (gnss_enable)
+        {            
+            timer_cnt++;
+            if (gnss_pose_received && gnss_enable && pos_type >= 54 && pos_type <=56)
             {
                 g_state_X(0) = g_X_gnss(0);
                 g_state_X(1) = g_X_gnss(1);
+                g_state_X(5) = g_X_gnss(5);
+                gnss_pose_received = false;
+            }
+            if (timer_cnt >= 10)
+            {
+                flag_published = true;
             }
         }
     }
@@ -141,12 +145,16 @@ void poseEstimation::poseEstimate()
     diff_update(4) = pi2piRad(deg2rad(rpy_inc(1) * g_dt));
     diff_update(5) = pi2piRad(deg2rad(rpy_inc(2) * g_dt));
 
-    g_state_X(0) += diff_update(0);
-    g_state_X(1) += diff_update(1);
-    g_state_X(2) += diff_update(2);
-    g_state_X(3) += diff_update(3);
-    g_state_X(4) += diff_update(4);
-    g_state_X(5) += diff_update(5);
+
+    if (sqrt(pow(velocity(0),2)+pow(velocity(1),2)) > 0.02 || std::fabs(rpy_inc(2)) > 0.5)
+    {
+        g_state_X(0) += diff_update(0);
+        g_state_X(1) += diff_update(1);
+        g_state_X(2) += diff_update(2);
+        g_state_X(3) += diff_update(3);
+        g_state_X(4) += diff_update(4);
+        g_state_X(5) += diff_update(5);
+    } 
 
     g_mat_Q.diagonal() << pow(g_Q_var(0), 2), pow(g_Q_var(1), 2), pow(g_Q_var(2), 2), 
                     pow(deg2rad(g_Q_var(3)), 2), pow(deg2rad(g_Q_var(4)), 2), pow(deg2rad(g_Q_var(5)), 2);
@@ -188,10 +196,10 @@ void poseEstimation::poseEstimate()
 
     // robotPose.twist.covariance[0] = MU_flag;                                       // Measurement update flag   
     robotPose.twist.covariance[1] = meas_info.pose.orientation.w;                     // Hessian Converged
-    robotPose.twist.covariance[2] = meas_info.pose.orientation.x;                     // hdop
+    robotPose.twist.covariance[2] = num_sat;                                          // number of satellite
     robotPose.twist.covariance[3] = meas_info.pose.orientation.y;                     // pdop
     robotPose.twist.covariance[4] = meas_info.pose.orientation.z;                     // Hessian Status
-    robotPose.twist.covariance[5] = meas_info.pose.position.z;                        // matching ratio
+    robotPose.twist.covariance[5] = pos_type;                                         // pos type
     robotPose.twist.covariance[7] = meas_info.pose.position.x;                        // localization processing time
     robotPose.twist.covariance[8] = meas_info.pose.position.y;                        // LIDAR points
     robotPose.twist.covariance[10] = hessian_cov.pose.orientation.w;                  // hessian cov x
@@ -329,7 +337,11 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
     if (gnss_handler_on)
     {
         mtx.lock();
-        int pos_type = gnssPose->pose.covariance[2];
+        gnss_pose_received = true;
+        pos_type = gnssPose->pose.covariance[2];
+        num_sat = gnssPose->pose.covariance[1];
+
+
         velocity(0) = gnssPose->twist.twist.linear.x;
         velocity(1) = gnssPose->twist.twist.linear.y;
         velocity(2) = gnssPose->twist.twist.linear.z;
@@ -347,10 +359,21 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
         g_R_GNSS(4) = gnssPose->pose.covariance[11]; // GNSS variance(std) pitch
         g_R_GNSS(5) = gnssPose->pose.covariance[14]; // GNSS variance(std) azimuth
 
-        g_Q_var(0) = gnssPose->pose.covariance[7];
-        g_Q_var(1) = gnssPose->pose.covariance[8];
-        g_Q_var(2) = gnssPose->pose.covariance[9];
+        g_Q_var(0) = gnssPose->pose.covariance[7];  // GNSS variance(std) velocity x
+        g_Q_var(1) = gnssPose->pose.covariance[8];  // GNSS variance(std) velocity y
+        g_Q_var(2) = gnssPose->pose.covariance[9];  // GNSS variance(std) velocity z
 
+        int gnss_scale = 100;
+        
+        if (pos_type == 56) gnss_scale = 10;
+        else if (pos_type == 55)    gnss_scale = 20;
+        else if (pos_type == 54)    gnss_scale = 50;
+        else
+        {
+            mtx.unlock();
+            return;
+        }
+        
         //INS 결합이 안된 상태라면 GNSS 측정치 업데이트 수행 X
         if (gnssPose->pose.covariance[0] == 3)  
         {   
@@ -366,25 +389,58 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
             mtx.unlock();
             return;
         }
-
+        if (num_sat < 20)
+        {
+            mtx.unlock();
+            return;
+        }
         // if (g_R_GNSS(0) > 0.5 || g_R_GNSS(1) > 0.5) 
         // {
         //     return;
         // }        
+
+        Eigen::Matrix2d gnss_cov (Eigen::Matrix2d::Identity());
+        gnss_cov(0,0) = g_R_GNSS(0);
+        gnss_cov(1,1) = g_R_GNSS(1);
+        Eigen::VectorXd g_X_state_diff(6);
+        g_X_state_diff = g_state_X - g_state_X_pre;
+        Eigen::VectorXd g_X_gnss_diff(4);
+        g_X_gnss_diff = g_X_gnss - g_X_gnss_pre;
+        Eigen::Vector2d gnss_res;
+        gnss_res(0) = g_X_state_diff(0) - g_X_gnss_diff(0);  gnss_res(1) = g_X_state_diff(1) - g_X_gnss_diff(1);
+        double xi_value = gnss_res.transpose() * gnss_cov.inverse() * gnss_res;
+        g_X_gnss_pre = g_X_gnss;
+        g_state_X_pre = g_state_X;
+
         // 정지시 측정치 업데이트 수행 안함 
         if (sqrt(pow(velocity(0),2)+pow(velocity(1),2)) < 0.02 && std::fabs(rpy_inc(2)) < 0.5)
         {
             mtx.unlock();
             return;
         } 
+        if (state_init && xi_value < 0.95)            
+        {
+            RCLCPP_INFO(this->get_logger(), "\x1b[32m" "GNSS Condition is good." "\x1b[0m");
+            mtx.unlock();
+            return;
+        }
+        else if (!state_init)
+        {
+            RCLCPP_INFO(this->get_logger(), "\x1b[33m" "Robot position is initializing." "\x1b[0m");
+        }
+        else            
+        {
+            RCLCPP_INFO(this->get_logger(), "\x1b[31m" "GNSS Condition is not good." "\x1b[0m");
+        }
+        
 
-        g_mat_R.diagonal() << pow(g_R_GNSS(0), 2), pow(g_R_GNSS(1), 2), pow(g_R_GNSS(2), 2), 
-                            pow((g_R_GNSS(3)), 2), pow((g_R_GNSS(4)), 2), pow((g_R_GNSS(5)), 2);
+        g_mat_R.diagonal() << pow(gnss_scale*g_R_GNSS(0), 2), pow(gnss_scale*g_R_GNSS(1), 2), pow(gnss_scale*g_R_GNSS(2), 2), 
+                            pow((gnss_scale*g_R_GNSS(3)), 2), pow((gnss_scale*g_R_GNSS(4)), 2), pow((gnss_scale*g_R_GNSS(5)), 2);
             
         Eigen::VectorXd z(6);
         z.setZero();
-        z(0) = g_X_gnss(0); z(1) = g_X_gnss(1); z(2) = g_X_gnss(2);
-        z(3) = pi2piRad(g_X_gnss(3));  z(4) = pi2piRad(g_X_gnss(4));  z(5) = pi2piRad(g_X_gnss(5));  // Heading calculated by position     
+        z(0) = g_X_gnss_diff(0)+g_state_X_pre(0); z(1) = g_X_gnss_diff(1)+g_state_X_pre(1); z(2) = g_X_gnss_diff(2)+g_state_X_pre(2);
+        z(3) = pi2piRad(g_X_gnss_diff(3)+g_state_X_pre(3));  z(4) = pi2piRad(g_X_gnss_diff(4)+g_state_X_pre(4));  z(5) = pi2piRad(g_X_gnss_diff(5)+g_state_X_pre(5));  // Heading calculated by position     
 
         g_mat_H.diagonal() << 1, 1, 0, 1, 1, 0; //z와 heading은 사용 X (헤딩은 추후 사용 가능성 검토 후 사용)
         g_res_Z = z - g_mat_H * g_state_X;

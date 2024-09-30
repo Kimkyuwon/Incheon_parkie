@@ -40,7 +40,7 @@ void DR_Handler::odomHandler(const nav_msgs::msg::Odometry::SharedPtr odomMsg){
     drVelo.twist.twist.linear.y = odomMsg->twist.twist.linear.x; //
     drVelo.twist.twist.linear.z = odomMsg->twist.twist.linear.z; //
 
-    drVelo.twist.twist.angular.x = rad2deg(odomMsg->twist.twist.angular.z); //roll 각속도
+    drVelo.twist.twist.angular.x = rad2deg(odomMsg->twist.twist.angular.y); //roll 각속도
     drVelo.twist.twist.angular.y = -rad2deg(odomMsg->twist.twist.angular.x); //pitch 각속도
     drVelo.twist.twist.angular.z = rad2deg(odomMsg->twist.twist.angular.z); //yaw 각속도
 

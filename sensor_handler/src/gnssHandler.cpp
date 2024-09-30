@@ -22,8 +22,8 @@ int gnssHandler::Initialize()
     roll_std = 100;
     pitch_std = 100;
     azi_std = 100;
-    subGNSS = create_subscription<novatel_oem7_msgs::msg::INSPVA>(
-        "/novatel/oem7/inspva", qos_, std::bind(&gnssHandler::callbackGnss, this, std::placeholders::_1)); 
+    subGNSS = create_subscription<novatel_oem7_msgs::msg::INSPVAX>(
+        "/novatel/oem7/inspvax", qos_, std::bind(&gnssHandler::callbackGnss, this, std::placeholders::_1)); 
     subINSSTDEV = create_subscription<novatel_oem7_msgs::msg::INSSTDEV>(
         "/novatel/oem7/insstdev", qos_, std::bind(&gnssHandler::callbackInsStdDev, this, std::placeholders::_1)); 
     subBestPos = create_subscription<novatel_oem7_msgs::msg::BESTPOS>(
@@ -39,7 +39,7 @@ int gnssHandler::Initialize()
 }
 
 
-void gnssHandler::callbackGnss(const novatel_oem7_msgs::msg::INSPVA::SharedPtr gnssMsg)
+void gnssHandler::callbackGnss(const novatel_oem7_msgs::msg::INSPVAX::SharedPtr gnssMsg)
 {   
     std_msgs::msg::Float32 dummyMsg;
     pubDummyGnss->publish(dummyMsg);
@@ -58,8 +58,10 @@ void gnssHandler::callbackGnss(const novatel_oem7_msgs::msg::INSPVA::SharedPtr g
     gnssPose.twist.twist.linear.z = gnssMsg->up_velocity;
     gnssPose.pose.pose.orientation.w = deg2rad(gnssMsg->roll);  //Roll
     gnssPose.pose.pose.orientation.x = deg2rad(gnssMsg->pitch); //Pitch
-    gnssPose.pose.pose.orientation.y = pi2piRad(deg2rad(gnssMsg->azimuth)); //azimuth
-    gnssPose.pose.covariance[0] = gnssMsg->status.status; // INS 결합 상태 --> INS_SOLUTION_GOOD = 3 이외에는 GNSS/INS 결합이 완료되지 않은 상태
+    double temp_azi = -(deg2rad(gnssMsg->azimuth));
+    if (temp_azi < -180)    temp_azi += 360;
+    gnssPose.pose.pose.orientation.y = temp_azi; //azimuth
+    gnssPose.pose.covariance[0] = gnssMsg->ins_status.status; // INS 결합 상태 --> INS_SOLUTION_GOOD = 3 이외에는 GNSS/INS 결합이 완료되지 않은 상태
     gnssPose.pose.covariance[1] = num_sv; // 가시 위성 수
     gnssPose.pose.covariance[2] = pos_type; //위치 추정 상태
     gnssPose.pose.covariance[3] = lat_std;  //Latitude STD
