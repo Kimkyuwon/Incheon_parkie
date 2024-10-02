@@ -11,7 +11,7 @@
     map_matching_range: 100.0
     resolution: 1.0
     voxel_size: 0.1
-    map_voxel_size: 0.1
+    map_voxel_size: 0.2
     iter_num: 5
     thread_num: 6
     step_size: 0.1

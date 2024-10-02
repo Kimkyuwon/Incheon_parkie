@@ -106,6 +106,8 @@ private:
     int timer_cnt = 0;
     int matching_failed_count = 0;
     int measure_update_type = 0;
+    double gnss_time;
+    double lidar_time;
     
     rclcpp::QoS qos_;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
