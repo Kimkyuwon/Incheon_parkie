@@ -104,7 +104,7 @@ private:
     bool init_gnss = 0;
     int init_cnt = 0;
     int timer_cnt = 0;
-    int matching_failed_count = 0;
+    int gnss_cnt = 0;
     int measure_update_type = 0;
     double gnss_time;
     double lidar_time;

@@ -41,7 +41,7 @@ int lidarHandler::Initialize()
     subDR = create_subscription<nav_msgs::msg::Odometry>(
         "/novatel/oem7/odom", qos_, std::bind(&lidarHandler::drHandler, this, std::placeholders::_1)); // dr/velo
     subLaserCloud = create_subscription<sensor_msgs::msg::PointCloud2>(
-        "/points", rclcpp::SensorDataQoS(), std::bind(&lidarHandler::laserCloudHandler, this, std::placeholders::_1)); // hesai/pandar
+        "/ouster/points", qos_, std::bind(&lidarHandler::laserCloudHandler, this, std::placeholders::_1)); // hesai/pandar
     subResponse = create_subscription<std_msgs::msg::Bool>(
         "/response_signal_NL", qos_, std::bind(&lidarHandler::responseCallback, this, std::placeholders::_1));
 

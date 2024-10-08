@@ -120,18 +120,7 @@ void poseEstimation::poseEstimate()
         
         if (response_subscribed) 
         {            
-            timer_cnt++;
-            if (gnss_pose_received && gnss_enable && pos_type >= 54 && pos_type <=56)
-            {
-                g_state_X(0) = g_X_gnss(0);
-                g_state_X(1) = g_X_gnss(1);
-                g_state_X(5) = g_X_gnss(5);
-                gnss_pose_received = false;
-            }
-            if (timer_cnt >= 5)
-            {
-                flag_published = true;
-            }
+            flag_published = true;
         }
     }
 
@@ -193,6 +182,8 @@ void poseEstimation::poseEstimate()
     robotPose.pose.covariance[21] = g_X_lidar(3);
     robotPose.pose.covariance[22] = g_X_lidar(4);
     robotPose.pose.covariance[23] = g_X_lidar(5);
+    robotPose.pose.covariance[28] = g_X_gnss(0);
+    robotPose.pose.covariance[29] = g_X_gnss(1);
 
     // robotPose.twist.covariance[0] = MU_flag;                                       // Measurement update flag   
     robotPose.twist.covariance[1] = meas_info.pose.orientation.w;                     // Hessian Converged
@@ -226,12 +217,6 @@ void poseEstimation::poseEstimate()
     
 }
 
-void poseEstimation::initPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr init)
-{
-    
-    // using station's marker || position from gps || .yaml parameter file
-}
-
 void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas)
 {
     double lidar_curr_time = meas->header.stamp.sec + meas->header.stamp.nanosec * 1e-9;
@@ -239,17 +224,16 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
     double diff_lidar_time = lidar_curr_time - lidar_prev_time;
     lidar_prev_time = lidar_curr_time;
 
-    if (diff_lidar_time < 0.09 || diff_lidar_time > 0.11)    return;
+    // if (diff_lidar_time < 0.09 || diff_lidar_time > 0.11)    return;
 
-    mtx.lock();
     meas_info = meas->poses[2];
     hessian_cov = meas->poses[5];
     bool hessian_converged = meas_info.pose.orientation.w;
     bool hessian_status = meas_info.pose.orientation.z;
 
-    double dop_scale = 0.5;
-    double c = 4;
-    double r = meas_info.pose.orientation.y-0.2;
+    double dop_scale = 0.4;
+    double c = 5;
+    double r = meas_info.pose.orientation.y-0.1;
     // tukey loss function
     double scale = pow(c,2)*(1-pow((1-pow((r/c),2)),3))/dop_scale; 
     if (meas_info.pose.orientation.y >= c)
@@ -265,7 +249,6 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
         }
         else
         {
-            mtx.unlock();
             return;
         }
 
@@ -330,19 +313,18 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
 
     g_mat_P = (g_mat_I - g_mat_K * g_mat_H) * g_mat_P;
     RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[32m" "LIDAR Measurement Update." "\x1b[0m");
-    mtx.unlock();
+    cout<<g_X_lidar(0)-g_X_gnss(0)<<", "<<g_X_lidar(1)-g_X_gnss(1)<<endl;
 }
 
 void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr gnssPose)
 {
     if (gnss_handler_on)
     {
-        mtx.lock();
         gnss_time = gnssPose->header.stamp.sec + gnssPose->header.stamp.nanosec * 1e-9;
 
-        gnss_pose_received = true;
         pos_type = gnssPose->pose.covariance[2];
         num_sat = gnssPose->pose.covariance[1];
+        double sigmask = gnssPose->pose.covariance[15];
 
 
         velocity(0) = gnssPose->twist.twist.linear.x;
@@ -368,12 +350,9 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
 
         int gnss_scale = 100;
         
-        if (pos_type == 56) gnss_scale = 20;
-        else if (pos_type == 55)    gnss_scale = 40;
-        else if (pos_type == 54)    gnss_scale = 50;
+        if (pos_type >= 54 && pos_type <= 56)   gnss_scale = 1;
         else
         {
-            mtx.unlock();
             return;
         }
         
@@ -387,24 +366,35 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
             gnss_enable = 0;
         }
 
+        if (gnss_cnt < 2 && gnss_enable && pos_type >= 54 && pos_type <=56)
+        {
+            RCLCPP_INFO_ONCE(this->get_logger(), "\x1b[32m" "Position Init." "\x1b[0m");
+            g_state_X(0) = g_X_gnss(0);
+            g_state_X(1) = g_X_gnss(1);
+            g_state_X(5) = g_X_gnss(5);
+            gnss_cnt++;
+        } 
+
         if (!gnss_enable)   
         {
-            mtx.unlock();
             return;
         }
         if (num_sat < 20)
         {
-            mtx.unlock();
             return;
         }
-        // if (g_R_GNSS(0) > 0.5 || g_R_GNSS(1) > 0.5) 
-        // {
-        //     return;
-        // }        
+        if (g_R_GNSS(0) > 1 || g_R_GNSS(1) > 1) 
+        {
+            return;
+        }        
+        if (sigmask < 20)
+        {
+            return;
+        }
 
         Eigen::Matrix2d gnss_cov (Eigen::Matrix2d::Identity());
-        gnss_cov(0,0) = pow(g_R_GNSS(0),2);
-        gnss_cov(1,1) = pow(g_R_GNSS(1),2);
+        gnss_cov(0,0) = pow(gnss_scale*g_R_GNSS(0),2);
+        gnss_cov(1,1) = pow(gnss_scale*g_R_GNSS(1),2);
         Eigen::VectorXd g_X_state_diff(6);
         g_X_state_diff = g_state_X - g_state_X_pre;
         Eigen::VectorXd g_X_gnss_diff(4);
@@ -425,16 +415,16 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
         if (state_init && xi_value < 0.95)            
         {
             RCLCPP_INFO(this->get_logger(), "\x1b[32m" "GNSS Condition is good." "\x1b[0m");
-            mtx.unlock();
-            return;
         }
         else if (!state_init)
         {
             RCLCPP_INFO(this->get_logger(), "\x1b[33m" "Robot position is initializing." "\x1b[0m");
+            return;
         }
         else            
         {
             RCLCPP_INFO(this->get_logger(), "\x1b[31m" "GNSS Condition is not good." "\x1b[0m");
+            return;
         }
         
 
@@ -457,7 +447,7 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
 
         g_mat_P = (g_mat_I - g_mat_K * g_mat_H) * g_mat_P;
         RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[32m" "GNSS Measurement Update." "\x1b[0m");
-        mtx.unlock();
+
     }
 }
 

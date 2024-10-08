@@ -21,6 +21,7 @@
 #include <novatel_oem7_msgs/msg/inspvax.hpp>
 #include <novatel_oem7_msgs/msg/insstdev.hpp>
 #include <novatel_oem7_msgs/msg/bestpos.hpp>
+#include <novatel_oem7_msgs/msg/bestgnsspos.hpp>
 
 using namespace std;
 
@@ -34,6 +35,7 @@ public:
     void callbackGnss(const novatel_oem7_msgs::msg::INSPVAX::SharedPtr gnssMsg);
     void callbackInsStdDev(const novatel_oem7_msgs::msg::INSSTDEV::SharedPtr stdMsg);
     void callbackBestPos(const novatel_oem7_msgs::msg::BESTPOS::SharedPtr posMsg);
+    void callbackBestGNSSPos(const novatel_oem7_msgs::msg::BESTGNSSPOS::SharedPtr posMsg);
 
     void responseCallback(const std_msgs::msg::Bool::SharedPtr rspsMsg);
 
@@ -45,6 +47,7 @@ private:
     double lat_std, lon_std, hgt_std, N_vel_std, E_vel_std, U_vel_std, roll_std, pitch_std, azi_std;
     int num_sv;
     int pos_type;
+    double gps_sigmask;
 
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pubReadyFlag;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubGnssPose;
@@ -52,6 +55,7 @@ private:
     rclcpp::Subscription<novatel_oem7_msgs::msg::INSPVAX>::ConstSharedPtr subGNSS;
     rclcpp::Subscription<novatel_oem7_msgs::msg::INSSTDEV>::ConstSharedPtr subINSSTDEV;
     rclcpp::Subscription<novatel_oem7_msgs::msg::BESTPOS>::ConstSharedPtr subBestPos;
+    rclcpp::Subscription<novatel_oem7_msgs::msg::BESTGNSSPOS>::ConstSharedPtr subBestGNSSPos;
     rclcpp::Subscription<std_msgs::msg::Bool>::ConstSharedPtr subResponse;
 
     rclcpp::QoS qos_;

@@ -26,8 +26,10 @@ int gnssHandler::Initialize()
         "/novatel/oem7/inspvax", qos_, std::bind(&gnssHandler::callbackGnss, this, std::placeholders::_1)); 
     subINSSTDEV = create_subscription<novatel_oem7_msgs::msg::INSSTDEV>(
         "/novatel/oem7/insstdev", qos_, std::bind(&gnssHandler::callbackInsStdDev, this, std::placeholders::_1)); 
-    subBestPos = create_subscription<novatel_oem7_msgs::msg::BESTPOS>(
-        "/novatel/oem7/bestpos", qos_, std::bind(&gnssHandler::callbackBestPos, this, std::placeholders::_1)); 
+    // subBestPos = create_subscription<novatel_oem7_msgs::msg::BESTPOS>(
+    //     "/novatel/oem7/bestpos", qos_, std::bind(&gnssHandler::callbackBestPos, this, std::placeholders::_1)); 
+    subBestGNSSPos = create_subscription<novatel_oem7_msgs::msg::BESTGNSSPOS>(
+        "/novatel/oem7/bestgnsspos", qos_, std::bind(&gnssHandler::callbackBestGNSSPos, this, std::placeholders::_1)); 
     subResponse = create_subscription<std_msgs::msg::Bool>(
         "/response_signal_PE", qos_, std::bind(&gnssHandler::responseCallback, this, std::placeholders::_1));
 
@@ -47,6 +49,14 @@ void gnssHandler::callbackGnss(const novatel_oem7_msgs::msg::INSPVAX::SharedPtr 
     Eigen::Vector3d llh;
     llh(0) = (gnssMsg->latitude); llh(1) = (gnssMsg->longitude); llh(2) = gnssMsg->height;
     Eigen::Vector2d TM = LatLon2TM(llh);
+    /// pos type 설명
+    /// INS_PSRSP = 53 --> 단일 GNSS 수신기 받은 위치 값과 INS 결합 상태 (보정 정보 사용 X)
+    /// INS_PSRDIFF = 54 --> DGPS 위치 값과 INS 결합 상태
+    /// INS_RTKFLOAT = 55 --> RTK Float 상태 (RTK 미지정수 추정 안됨)의 위치 값과 INS 결합 상태
+    /// INS_RTKFIXED = 56 --> RTK Fixed 상태 (RTK 미지정수 추정 완료)의 위치 값과 INS 결합 상태 (가장 위치 정확도가 높음)
+    /// 위치 신뢰도가 높은 상태는 INS_RTKFIXED > INS_RTKFLOAT > INS_PSRDIFF > INS_PSRSP 순
+    /// 우리는 INS 결합이 완료되었을 때만 GNSS 측정치를 사용할 것이므로 다른 상태는 고려 X
+    pos_type = gnssMsg->pos_type.type;   
 
     nav_msgs::msg::Odometry gnssPose;
     gnssPose.header.stamp = rclcpp::Clock().now();
@@ -73,6 +83,7 @@ void gnssHandler::callbackGnss(const novatel_oem7_msgs::msg::INSPVAX::SharedPtr 
     gnssPose.pose.covariance[10] = roll_std;    // roll STD
     gnssPose.pose.covariance[11] = pitch_std;   // pitch STD
     gnssPose.pose.covariance[14] = azi_std;     // azimuth STD
+    gnssPose.pose.covariance[15] = gps_sigmask;
     pubGnssPose->publish(gnssPose);
 
     if (!flag_published) 
@@ -104,20 +115,18 @@ void gnssHandler::callbackInsStdDev(const novatel_oem7_msgs::msg::INSSTDEV::Shar
 void gnssHandler::callbackBestPos(const novatel_oem7_msgs::msg::BESTPOS::SharedPtr posMsg)
 {   
     num_sv = posMsg->num_svs;   // 가시 위성 개수
-    /// pos type 설명
-    /// INS_PSRSP = 53 --> 단일 GNSS 수신기 받은 위치 값과 INS 결합 상태 (보정 정보 사용 X)
-    /// INS_PSRDIFF = 54 --> DGPS 위치 값과 INS 결합 상태
-    /// INS_RTKFLOAT = 55 --> RTK Float 상태 (RTK 미지정수 추정 안됨)의 위치 값과 INS 결합 상태
-    /// INS_RTKFIXED = 56 --> RTK Fixed 상태 (RTK 미지정수 추정 완료)의 위치 값과 INS 결합 상태 (가장 위치 정확도가 높음)
-    /// 위치 신뢰도가 높은 상태는 INS_RTKFIXED > INS_RTKFLOAT > INS_PSRDIFF > INS_PSRSP 순
-    /// 우리는 INS 결합이 완료되었을 때만 GNSS 측정치를 사용할 것이므로 다른 상태는 고려 X
-    pos_type = posMsg->pos_type.type;   
+}
+
+void gnssHandler::callbackBestGNSSPos(const novatel_oem7_msgs::msg::BESTGNSSPOS::SharedPtr posMsg)
+{   
+    num_sv = posMsg->num_svs;   // 가시 위성 개수
+    gps_sigmask = posMsg->gps_glonass_sig_mask;
 }
 
 void gnssHandler::responseCallback(const std_msgs::msg::Bool::SharedPtr rspsMsg) {
 
-    if (rspsMsg->data) {
-
+    if (rspsMsg->data) 
+    {
         response_subscribed = true;
     }
 }

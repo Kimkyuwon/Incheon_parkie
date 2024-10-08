@@ -28,7 +28,7 @@ public:
     int Initialize();
     void pub();
 
-    void imuHandler(const sensor_msgs::msg::Imu::SharedPtr imuMsg);
+    void GNSSodomHandler(const nav_msgs::msg::Odometry::SharedPtr odomMsg);
     void odomHandler(const nav_msgs::msg::Odometry::SharedPtr odomMsg);
 
 private:
@@ -47,9 +47,7 @@ private:
     Eigen::Vector3d odom_vec;
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubDR;
-    rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pubDummyImu;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pubDummyOdom;
-    rclcpp::Subscription<sensor_msgs::msg::Imu>::ConstSharedPtr subIMU;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::ConstSharedPtr subOdom;
 
     rclcpp::QoS qos_;

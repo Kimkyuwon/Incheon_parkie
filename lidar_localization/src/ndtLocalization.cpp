@@ -94,8 +94,8 @@ int ndtLocalization::Initialize(){
     g_TM_offset.setZero();
     g_TM_offset(0) = init_x;    g_TM_offset(1) = init_y;   
     Eigen::Matrix4d TM_TF(Eigen::Matrix4d::Identity());
-    TM_TF(0,3) = -g_TM_offset(0);
-    TM_TF(1,3) = -g_TM_offset(1);
+    TM_TF(0,3) = -g_TM_offset(0)+0.46;
+    TM_TF(1,3) = -g_TM_offset(1)-0.53;
     if (pcl::io::loadPCDFile(map_directory, *laserCloudMap) == -1)
     {
         RCLCPP_ERROR(this->get_logger(), "Map file cannot open.\n");
