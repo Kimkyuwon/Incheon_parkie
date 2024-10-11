@@ -231,7 +231,7 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
     bool hessian_converged = meas_info.pose.orientation.w;
     bool hessian_status = meas_info.pose.orientation.z;
 
-    double dop_scale = 0.4;
+    double dop_scale = 0.1;
     double c = 5;
     double r = meas_info.pose.orientation.y-0.1;
     // tukey loss function
@@ -304,6 +304,22 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
 
     g_mat_H.diagonal() << 1, 1, 1, 1, 1, 1;
     g_res_Z = z - g_mat_H * g_state_X;
+    if (g_res_Z(0) > 0.03)
+    {
+        g_res_Z(0) = 0.03;
+    }
+    else if (g_res_Z(0) < -0.03)
+    {
+        g_res_Z(0) = -0.03;
+    }
+    if (g_res_Z(1) > 0.03)
+    {
+        g_res_Z(1) = 0.03;
+    }
+    else if (g_res_Z(1) < -0.03)
+    {
+        g_res_Z(1) = -0.03;
+    }
     g_res_Z(3) = pi2piRad(g_res_Z(3)); g_res_Z(4) = pi2piRad(g_res_Z(4)); g_res_Z(5) = pi2piRad(g_res_Z(5));
 
     g_mat_K = g_mat_P * g_mat_H.transpose() * (g_mat_H * g_mat_P * g_mat_H.transpose() + g_mat_R).inverse();
@@ -440,6 +456,22 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
         g_res_Z = z - g_mat_H * g_state_X;
         g_res_Z(3) = pi2piRad(g_res_Z(3));  g_res_Z(4) = pi2piRad(g_res_Z(4));  g_res_Z(5) = pi2piRad(g_res_Z(5));
 
+        if (g_res_Z(0) > 0.03)
+        {
+            g_res_Z(0) = 0.03;
+        }
+        else if (g_res_Z(0) < -0.03)
+        {
+            g_res_Z(0) = -0.03;
+        }
+        if (g_res_Z(1) > 0.03)
+        {
+            g_res_Z(1) = 0.03;
+        }
+        else if (g_res_Z(1) < -0.03)
+        {
+            g_res_Z(1) = -0.03;
+        }
         g_mat_K = g_mat_P * g_mat_H.transpose() * (g_mat_H * g_mat_P * g_mat_H.transpose() + g_mat_R).inverse();
         
         g_state_X += g_mat_K * g_res_Z; 

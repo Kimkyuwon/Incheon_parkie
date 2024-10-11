@@ -68,9 +68,9 @@ void gnssHandler::callbackGnss(const novatel_oem7_msgs::msg::INSPVAX::SharedPtr 
     gnssPose.twist.twist.linear.z = gnssMsg->up_velocity;
     gnssPose.pose.pose.orientation.w = deg2rad(gnssMsg->roll);  //Roll
     gnssPose.pose.pose.orientation.x = deg2rad(gnssMsg->pitch); //Pitch
-    double temp_azi = -(deg2rad(gnssMsg->azimuth));
+    double temp_azi = -(gnssMsg->azimuth);
     if (temp_azi < -180)    temp_azi += 360;
-    gnssPose.pose.pose.orientation.y = temp_azi; //azimuth
+    gnssPose.pose.pose.orientation.y = deg2rad(temp_azi); //azimuth
     gnssPose.pose.covariance[0] = gnssMsg->ins_status.status; // INS 결합 상태 --> INS_SOLUTION_GOOD = 3 이외에는 GNSS/INS 결합이 완료되지 않은 상태
     gnssPose.pose.covariance[1] = num_sv; // 가시 위성 수
     gnssPose.pose.covariance[2] = pos_type; //위치 추정 상태
