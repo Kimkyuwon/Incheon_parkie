@@ -264,6 +264,10 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
         }      
     }
 
+    if (sqrt(pow(velocity(0),2)+pow(velocity(1),2)) < 0.01 && std::fabs(rpy_inc(2)) < 0.5)
+    {
+        return;
+    }
     g_R_lidar(0) = scale * hessian_cov.pose.orientation.w;      // LiDAR variance(std) x
     g_R_lidar(1) = scale * hessian_cov.pose.orientation.x;      // LiDAR variance(std) y
     g_R_lidar(2) = scale * hessian_cov.pose.orientation.y;      // LiDAR variance(std) z
@@ -329,7 +333,6 @@ void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas
 
     g_mat_P = (g_mat_I - g_mat_K * g_mat_H) * g_mat_P;
     RCLCPP_INFO_STREAM(this->get_logger(), "\x1b[32m" "LIDAR Measurement Update." "\x1b[0m");
-    cout<<g_X_lidar(0)-g_X_gnss(0)<<", "<<g_X_lidar(1)-g_X_gnss(1)<<endl;
 }
 
 void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr gnssPose)
@@ -408,6 +411,11 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
             return;
         }
 
+        if (sqrt(pow(velocity(0),2)+pow(velocity(1),2)) < 0.01 && std::fabs(rpy_inc(2)) < 0.5)
+        {
+            return;
+        }
+        
         Eigen::Matrix2d gnss_cov (Eigen::Matrix2d::Identity());
         gnss_cov(0,0) = pow(gnss_scale*g_R_GNSS(0),2);
         gnss_cov(1,1) = pow(gnss_scale*g_R_GNSS(1),2);
@@ -420,14 +428,7 @@ void poseEstimation::gnssPoseCallback(const nav_msgs::msg::Odometry::SharedPtr g
         double xi_value = gnss_res.transpose() * gnss_cov.inverse() * gnss_res;
         g_X_gnss_pre = g_X_gnss;
         g_state_X_pre = g_state_X;
-        cout<<xi_value<<endl;
-
-        // // 정지시 측정치 업데이트 수행 안함 
-        // if (sqrt(pow(velocity(0),2)+pow(velocity(1),2)) < 0.02 && std::fabs(rpy_inc(2)) < 0.5)
-        // {
-        //     mtx.unlock();
-        //     return;
-        // } 
+        
         if (state_init && xi_value < 0.95)            
         {
             RCLCPP_INFO(this->get_logger(), "\x1b[32m" "GNSS Condition is good." "\x1b[0m");
