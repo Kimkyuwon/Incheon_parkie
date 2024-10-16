@@ -1,0 +1,11 @@
+.idea/
+.vscode/
+enter_car_ws/.vscode
+enter_car_ws/build
+enter_car_ws/install
+enter_car_ws/log
+enter_car_ws/weights/ver8n.engine
+enter_car_ws/weights/ver8n.onnx
+make_engine/.idea
+make_engine/.vscode
+make_engine/build
