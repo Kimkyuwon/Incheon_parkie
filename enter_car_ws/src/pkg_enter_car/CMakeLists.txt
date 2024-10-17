@@ -24,7 +24,9 @@ find_package(OpenCV REQUIRED)
 find_package(CUDA REQUIRED)
 
 # Tensor 라이브러리와 헤더 파일 경로 설정 -> 인국공pc 환경설정 자동으로 안찾아져서 set 필요 
-set(TensorRT_Dir "/home/robot/TensorRT-8.5.2.2")
+# TensorRT-8.5.2.2 설치된 경로로 변경
+# set(TensorRT_Dir "/home/robot/TensorRT-8.5.2.2") #A6000 PC
+set(TensorRT_Dir "/usr/local/TensorRT-8.5.2.2") #인국공PC
 set(TensorRT_LIB_Dir "${TensorRT_Dir}/targets/x86_64-linux-gnu/lib")  # need to set your own tensorRT directory
 set(TensorRT_INCLUDE_Dir "${TensorRT_Dir}/include/")  # need to set your own tensorRT directory
 
