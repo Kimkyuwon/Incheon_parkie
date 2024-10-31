@@ -58,6 +58,7 @@ public:
 
 private:
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubRobotPose;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubRobotBodyPose;
     rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr pubReadyFlag;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pubResponse;
 
@@ -112,6 +113,8 @@ private:
     rclcpp::QoS qos_;
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster;
     geometry_msgs::msg::TransformStamped tf;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster2;
+    geometry_msgs::msg::TransformStamped tf2;
 
     geometry_msgs::msg::PoseStamped meas_info;
     geometry_msgs::msg::PoseStamped hessian_cov;

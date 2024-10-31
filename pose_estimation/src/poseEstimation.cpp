@@ -80,13 +80,17 @@ int poseEstimation::initialize(){
     subResponse = create_subscription<std_msgs::msg::Bool>(
         "/response_signal_NL", qos_, std::bind(&poseEstimation::responseCallback, this, std::placeholders::_1));
 
-    pubRobotPose = create_publisher<nav_msgs::msg::Odometry>("pose_COG", qos_);
+    pubRobotPose = create_publisher<nav_msgs::msg::Odometry>("pose_COG_novatel", qos_);
+    pubRobotBodyPose = create_publisher<nav_msgs::msg::Odometry>("pose_COG", qos_);
     pubReadyFlag = create_publisher<std_msgs::msg::Empty>("/ready_signal_PE", qos_);
     pubResponse = create_publisher<std_msgs::msg::Bool>("/response_signal_PE", qos_);
 
     tf.header.frame_id = "map";
     tf.child_frame_id = "pose_COG";
     tf_broadcaster = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    tf2.header.frame_id = "map";
+    tf2.child_frame_id = "pose_GNSS";
+    tf_broadcaster2 = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
     timer = this->create_wall_timer(std::chrono::milliseconds(10), std::bind(&poseEstimation::poseEstimate, this));
 
@@ -149,6 +153,36 @@ void poseEstimation::poseEstimate()
                     pow(deg2rad(g_Q_var(3)), 2), pow(deg2rad(g_Q_var(4)), 2), pow(deg2rad(g_Q_var(5)), 2);
     g_mat_P += g_mat_Q;
 
+    //노바텔 수신기 위치 --> pose COG(로봇 body frame)으로 좌표 변환
+    Eigen::Matrix4d global_TF(Eigen::Matrix4d::Identity());
+    Eigen::Matrix3d global_R;
+    global_R =  Eigen::AngleAxisd(g_state_X(5), Eigen::Vector3d::UnitZ())
+        * Eigen::AngleAxisd(g_state_X(4), Eigen::Vector3d::UnitY())
+        * Eigen::AngleAxisd(g_state_X(3), Eigen::Vector3d::UnitX());
+    global_TF.block(0,0,3,3) = global_R;
+    global_TF(0,3) = g_state_X(0);
+    global_TF(1,3) = g_state_X(1);
+    global_TF(2,3) = g_state_X(2);
+    Eigen::Matrix4d g2b_TF(Eigen::Matrix4d::Identity());
+    g2b_TF(0,3) = 2.1;
+    g2b_TF(1,3) = 1.6;
+    global_TF = global_TF*g2b_TF;
+    Eigen::Matrix3d cog_R;
+    cog_R = global_TF.block(0,0,3,3);
+    Eigen::VectorXd g_state_cog(6);
+
+    Eigen::Quaterniond q(cog_R);
+    tf2::Quaternion q_cog;
+    q_cog.setW(q.w());
+    q_cog.setX(q.x());
+    q_cog.setY(q.y());
+    q_cog.setZ(q.z());
+    tf2::Matrix3x3 m(q_cog);
+    m.getRPY(g_state_cog(3), g_state_cog(4), g_state_cog(5));
+    g_state_cog(0) = global_TF(0,3);
+    g_state_cog(1) = global_TF(1,3);
+    g_state_cog(2) = global_TF(2,3);
+
     /* Broadcast Final Robot Pose */
     tf2::Quaternion quat;
     quat.setRPY(g_state_X(3), g_state_X(4), g_state_X(5));
@@ -202,18 +236,40 @@ void poseEstimation::poseEstimate()
 
     pubRobotPose->publish(robotPose);
 
+    robotPose.pose.pose.position.x = g_state_cog(0);
+    robotPose.pose.pose.position.y = g_state_cog(1);
+    robotPose.pose.pose.position.z = g_state_cog(2);
+    robotPose.pose.pose.orientation.x = q_cog.x();
+    robotPose.pose.pose.orientation.y = q_cog.y();
+    robotPose.pose.pose.orientation.z = q_cog.z();
+    robotPose.pose.pose.orientation.w = q_cog.w();
+    pubRobotBodyPose->publish(robotPose);
+
     tf2::Transform transform;
-    transform.setOrigin(tf2::Vector3(g_state_X(0), g_state_X(1), g_state_X(2)));
+    transform.setOrigin(tf2::Vector3(g_state_cog(0), g_state_cog(1), g_state_cog(2)));
 
     tf.header.stamp = this->get_clock()->now();
-    tf.transform.translation.x = g_state_X(0);
-    tf.transform.translation.y = g_state_X(1);
-    tf.transform.translation.z = g_state_X(2);
+    tf.transform.translation.x = g_state_cog(0);
+    tf.transform.translation.y = g_state_cog(1);
+    tf.transform.translation.z = g_state_cog(2);
     tf.transform.rotation.x = quat.getX();
     tf.transform.rotation.y = quat.getY();
     tf.transform.rotation.z = quat.getZ();
     tf.transform.rotation.w = quat.getW();
     tf_broadcaster->sendTransform(tf);
+
+    tf2::Transform transform2;
+    transform2.setOrigin(tf2::Vector3(g_state_X(0), g_state_X(1), g_state_X(2)));
+
+    tf2.header.stamp = this->get_clock()->now();
+    tf2.transform.translation.x = g_state_X(0);
+    tf2.transform.translation.y = g_state_X(1);
+    tf2.transform.translation.z = g_state_X(2);
+    tf2.transform.rotation.x = quat.getX();
+    tf2.transform.rotation.y = quat.getY();
+    tf2.transform.rotation.z = quat.getZ();
+    tf2.transform.rotation.w = quat.getW();
+    tf_broadcaster2->sendTransform(tf2);
     
 }
 

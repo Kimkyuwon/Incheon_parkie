@@ -144,7 +144,7 @@ int ndtLocalization::Initialize(){
     state_TF.block(0,0,3,3) = R_init;
 
     subState = create_subscription<nav_msgs::msg::Odometry>(
-        "pose_COG", qos_, std::bind(&ndtLocalization::currStateHandler, this, std::placeholders::_1));
+        "pose_COG_novatel", qos_, std::bind(&ndtLocalization::currStateHandler, this, std::placeholders::_1));
     subLaserCloud = create_subscription<sensor_msgs::msg::PointCloud2>(
         "lidar_points", qos_q1, std::bind(&ndtLocalization::laserCloudHandler, this, std::placeholders::_1));
     subReadyFlagLH = create_subscription<std_msgs::msg::Empty>(
