@@ -56,13 +56,24 @@ int poseEstimation::initialize(){
     this->declare_parameter<double>("init_roll", 0);
     this->declare_parameter<double>("init_pitch", 0);
     this->declare_parameter<double>("init_yaw", 0);
+
+    // add start
+    this->declare_parameter<double>("LaserTrackerOffset_x", 0);
+    this->declare_parameter<double>("LaserTrackerOffset_y", 0);
+    // add end
+
     this->get_parameter("init_x", init_x);
     this->get_parameter("init_y", init_y);
     this->get_parameter("init_z", init_z);
     this->get_parameter("init_roll", init_roll);
     this->get_parameter("init_pitch", init_pitch);
     this->get_parameter("init_yaw", init_yaw);
-    
+
+    // add start
+    this->get_parameter("LaserTrackerOffset_x", LaserTrackerOffset_x);
+    this->get_parameter("LaserTrackerOffset_y", LaserTrackerOffset_y);
+    // add end
+
     g_TM_offset.setZero();
     g_TM_offset(0) = init_x;    g_TM_offset(1) = init_y;    
     g_state_X(0) = init_x-g_TM_offset(0); g_state_X(1) = init_y-g_TM_offset(1); g_state_X(2) = init_z;
@@ -202,8 +213,8 @@ void poseEstimation::poseEstimate()
 
     // add start
     Eigen::Matrix4d g2b_TF_eval(Eigen::Matrix4d::Identity());
-    g2b_TF_eval(0,3) = -0.72;
-    g2b_TF_eval(1,3) = 0.0; // launch param
+    g2b_TF_eval(0,3) = LaserTrackerOffset_x;
+    g2b_TF_eval(1,3) = LaserTrackerOffset_y; // launch param
 
     global_TF_copy = global_TF_copy*g2b_TF_eval;
     Eigen::Matrix3d cog_R_evaluation;

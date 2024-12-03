@@ -7,3 +7,8 @@
     init_roll: 0.0
     init_pitch: 0.0
     init_yaw: 35.0
+
+    # add start
+    LaserTrackerOffset_x: -0.72
+    LaserTrackerOffset_y: 0.0
+    # add end

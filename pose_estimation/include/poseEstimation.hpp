@@ -124,6 +124,8 @@ private:
     // add start
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_evaluation;
     geometry_msgs::msg::TransformStamped tf_evaluation;
+    double LaserTrackerOffset_x;
+    double LaserTrackerOffset_y;
     // add end
 
     geometry_msgs::msg::PoseStamped meas_info;
