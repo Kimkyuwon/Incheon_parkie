@@ -82,6 +82,11 @@ int poseEstimation::initialize(){
 
     pubRobotPose = create_publisher<nav_msgs::msg::Odometry>("pose_COG_novatel", qos_);
     pubRobotBodyPose = create_publisher<nav_msgs::msg::Odometry>("pose_COG", qos_);
+    
+    // add start
+    pubEvaluationRobotBodyPose = create_publisher<nav_msgs::msg::Odometry>("pose_COG_evaluation", qos_);
+    // add end
+
     pubReadyFlag = create_publisher<std_msgs::msg::Empty>("/ready_signal_PE", qos_);
     pubResponse = create_publisher<std_msgs::msg::Bool>("/response_signal_PE", qos_);
 
@@ -91,6 +96,12 @@ int poseEstimation::initialize(){
     tf2.header.frame_id = "map";
     tf2.child_frame_id = "pose_GNSS";
     tf_broadcaster2 = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+
+    // add start
+    tf_evaluation.header.frame_id = "map";
+    tf_evaluation.child_frame_id = "pose_COG_evaluation";
+    tf_broadcaster_evaluation = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+    // add end
 
     timer = this->create_wall_timer(std::chrono::milliseconds(10), std::bind(&poseEstimation::poseEstimate, this));
 
@@ -165,7 +176,13 @@ void poseEstimation::poseEstimate()
     global_TF(2,3) = g_state_X(2);
     Eigen::Matrix4d g2b_TF(Eigen::Matrix4d::Identity());
     g2b_TF(0,3) = 2.1;
-    g2b_TF(1,3) = 1.6;
+    g2b_TF(1,3) = 1.6; 
+
+    // add start
+    Eigen::Matrix4d global_TF_copy(Eigen::Matrix4d::Identity());
+    global_TF_copy = global_TF;
+    // add end
+
     global_TF = global_TF*g2b_TF;
     Eigen::Matrix3d cog_R;
     cog_R = global_TF.block(0,0,3,3);
@@ -182,6 +199,30 @@ void poseEstimation::poseEstimate()
     g_state_cog(0) = global_TF(0,3);
     g_state_cog(1) = global_TF(1,3);
     g_state_cog(2) = global_TF(2,3);
+
+    // add start
+    Eigen::Matrix4d g2b_TF_eval(Eigen::Matrix4d::Identity());
+    g2b_TF_eval(0,3) = -0.72;
+    g2b_TF_eval(1,3) = 0.0; // launch param
+
+    global_TF_copy = global_TF_copy*g2b_TF_eval;
+    Eigen::Matrix3d cog_R_evaluation;
+    cog_R_evaluation = global_TF_copy.block(0,0,3,3);
+    Eigen::VectorXd g_state_cog_evaluation(6);
+
+    Eigen::Quaterniond q_evaluation(cog_R_evaluation);
+    tf2::Quaternion q_cog_evaluation;
+    q_cog_evaluation.setW(q_evaluation.w());
+    q_cog_evaluation.setX(q_evaluation.x());
+    q_cog_evaluation.setY(q_evaluation.y());
+    q_cog_evaluation.setZ(q_evaluation.z());
+    tf2::Matrix3x3 m_evaluation(q_cog_evaluation);
+    m_evaluation.getRPY(g_state_cog_evaluation(3), g_state_cog_evaluation(4), g_state_cog_evaluation(5));
+    g_state_cog_evaluation(0) = global_TF_copy(0,3);
+    g_state_cog_evaluation(1) = global_TF_copy(1,3);
+    g_state_cog_evaluation(2) = global_TF_copy(2,3);
+    // add end
+
 
     /* Broadcast Final Robot Pose */
     tf2::Quaternion quat;
@@ -271,6 +312,30 @@ void poseEstimation::poseEstimate()
     tf2.transform.rotation.w = quat.getW();
     tf_broadcaster2->sendTransform(tf2);
     
+
+    // add start
+    robotPose.pose.pose.position.x = g_state_cog_evaluation(0);
+    robotPose.pose.pose.position.y = g_state_cog_evaluation(1);
+    robotPose.pose.pose.position.z = g_state_cog_evaluation(2);
+    robotPose.pose.pose.orientation.x = q_cog_evaluation.x();
+    robotPose.pose.pose.orientation.y = q_cog_evaluation.y();
+    robotPose.pose.pose.orientation.z = q_cog_evaluation.z();
+    robotPose.pose.pose.orientation.w = q_cog_evaluation.w();
+    pubEvaluationRobotBodyPose->publish(robotPose);
+
+    tf2::Transform transform_evaluation;
+    transform_evaluation.setOrigin(tf2::Vector3(g_state_cog_evaluation(0), g_state_cog_evaluation(1), g_state_cog_evaluation(2)));
+
+    tf_evaluation.header.stamp = this->get_clock()->now();
+    tf_evaluation.transform.translation.x = g_state_cog_evaluation(0);
+    tf_evaluation.transform.translation.y = g_state_cog_evaluation(1);
+    tf_evaluation.transform.translation.z = g_state_cog_evaluation(2);
+    tf_evaluation.transform.rotation.x = q_cog_evaluation.x();//quat.getX();
+    tf_evaluation.transform.rotation.y = q_cog_evaluation.y();//quat.getY();
+    tf_evaluation.transform.rotation.z = q_cog_evaluation.z();//quat.getZ();
+    tf_evaluation.transform.rotation.w = q_cog_evaluation.w();//quat.getW();
+    tf_broadcaster_evaluation->sendTransform(tf_evaluation);
+    // add end
 }
 
 void poseEstimation::lidarPoseCallback(const nav_msgs::msg::Path::SharedPtr meas)
