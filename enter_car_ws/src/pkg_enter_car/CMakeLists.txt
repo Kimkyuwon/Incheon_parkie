@@ -36,9 +36,12 @@ include_directories(
   ${CUDA_INCLUDE_DIRS}
   ${TensorRT_INCLUDE_Dir}
 )
-
 add_executable(node_wheel_detection src/node_wheel_detection.cpp)
+add_executable(node_wheel_detection_evaluation_mode src/node_wheel_detection_evaluation_mode.cpp)
+
 ament_target_dependencies(node_wheel_detection rclcpp sensor_msgs cv_bridge OpenCV)
+ament_target_dependencies(node_wheel_detection_evaluation_mode rclcpp sensor_msgs cv_bridge OpenCV)
+
 # target_include_directories(node_wheel_detection PUBLIC
 #   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 #   $<INSTALL_INTERFACE:include>)
@@ -51,10 +54,21 @@ target_link_libraries(node_wheel_detection
   ${TensorRT_LIB_Dir}/libnvonnxparser.so
 )
 
+target_link_libraries(node_wheel_detection_evaluation_mode
+  ${OpenCV_LIBS}
+  ${CUDA_LIBRARIES}
+  ${TensorRT_LIB_Dir}/libnvparsers.so
+  ${TensorRT_LIB_Dir}/libnvinfer.so
+  ${TensorRT_LIB_Dir}/libnvonnxparser.so
+)
+
 install(TARGETS node_wheel_detection
   DESTINATION lib/${PROJECT_NAME})
 
-if(BUILD_TESTING)
+install(TARGETS node_wheel_detection_evaluation_mode
+  DESTINATION lib/${PROJECT_NAME})
+
+  if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 endif()

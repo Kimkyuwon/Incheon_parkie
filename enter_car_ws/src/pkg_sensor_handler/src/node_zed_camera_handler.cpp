@@ -43,6 +43,20 @@ public:
       rclcpp::shutdown();
     }
 
+    auto zed_front_info = zed_front_.getCameraInformation();
+    std::cout << "front_right 카메라의 Intrinsic Parameters:" << std::endl;
+    std::cout << "fx: " << zed_front_info.camera_configuration.calibration_parameters.left_cam.fx << std::endl;
+    std::cout << "fy: " << zed_front_info.camera_configuration.calibration_parameters.left_cam.fy << std::endl;
+    std::cout << "cx: " << zed_front_info.camera_configuration.calibration_parameters.left_cam.cx << std::endl;
+    std::cout << "cy: " << zed_front_info.camera_configuration.calibration_parameters.left_cam.cy << std::endl;
+    // intrinsic parameter 출력
+    auto zed_rear_info = zed_rear_.getCameraInformation();
+    std::cout << "rear_left 카메라의 Intrinsic Parameters:" << std::endl;
+    std::cout << "fx: " << zed_rear_info.camera_configuration.calibration_parameters.right_cam.fx << std::endl;
+    std::cout << "fy: " << zed_rear_info.camera_configuration.calibration_parameters.right_cam.fy << std::endl;
+    std::cout << "cx: " << zed_rear_info.camera_configuration.calibration_parameters.right_cam.cx << std::endl;
+    std::cout << "cy: " << zed_rear_info.camera_configuration.calibration_parameters.right_cam.cy << std::endl;
+
     // 퍼블리셔 생성
     publisher_ = this->create_publisher<sensor_msgs::msg::CompressedImage>("zed_imgs_topic", 1);
 
@@ -115,7 +129,27 @@ private:
       compressed_image_msg->header.stamp = this->now(); // 현재 시간 설정
       // 이미지 퍼블리시
       publisher_->publish(std::move(compressed_image_msg));
+
+      // image 캡처 옵션
+      // 키 입력 대기
+      char key = cv::waitKey(1); // 1ms 대기
+      if (key == 'c')
+      {
+        // 이미지 캡처
+        std::string zed_front = "./captureimg/ZED Camera Front" + std::to_string(captureCount_) + ".png";
+        std::string zed_rear = "./captureimg/ZED Camera Rear" + std::to_string(captureCount_++) + ".png";
+        if (cv::imwrite(zed_front, image_vector[0]) && cv::imwrite(zed_rear, image_vector[1]))
+        {
+          std::cout << "Image captured: " << zed_front << std::endl;
+          std::cout << "Image captured: " << zed_rear << std::endl;
+        }
+        else
+        {
+          std::cerr << "Error: Could not save the image." << std::endl;
+        }
+      }
     }
+
     else
     {
       RCLCPP_WARN(this->get_logger(), "ZED에서 이미지를 가져오는 데 실패했습니다.");
@@ -129,6 +163,9 @@ private:
   // ZED 초기화 파라미터 설정
   sl::Camera zed_front_, zed_rear_;
   sl::InitParameters init_params_;
+
+  // CaptureCount
+  int captureCount_ = 0;
 
   rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr publisher_; // 퍼블리셔
   rclcpp::TimerBase::SharedPtr timer_;                                        // 타이머
