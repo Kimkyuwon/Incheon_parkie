@@ -84,6 +84,8 @@ void gnssHandler::callbackGnss(const novatel_oem7_msgs::msg::INSPVAX::SharedPtr 
     gnssPose.pose.covariance[11] = pitch_std;   // pitch STD
     gnssPose.pose.covariance[14] = azi_std;     // azimuth STD
     gnssPose.pose.covariance[15] = gps_sigmask;
+    gnssPose.pose.covariance[16] = sqrt(gnssMsg->east_velocity*gnssMsg->east_velocity + gnssMsg->north_velocity*gnssMsg->north_velocity);
+
     pubGnssPose->publish(gnssPose);
 
     if (!flag_published) 
